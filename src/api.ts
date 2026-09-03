@@ -14,6 +14,8 @@ export interface LibraryItemSummary {
   isFinished: boolean;
   currentTime: number;
   coverUrl: string;
+  offline: boolean;
+  series: string;
 }
 
 export interface Chapter {
@@ -107,6 +109,10 @@ export const getLibraryItems = callable<
 export const getItemDetails = callable<[item_id: string], ItemDetails>(
   "get_item_details"
 );
+export const getCover = callable<
+  [item_id: string],
+  BasicResult & { dataUrl?: string }
+>("get_cover");
 
 // ---- offline downloads ----
 export const downloadItem = callable<[item_id: string], BasicResult>("download_item");

@@ -2,6 +2,7 @@ import os
 import json
 import time
 import asyncio
+import base64
 
 import decky
 
@@ -186,13 +187,19 @@ class Plugin:
     async def get_library_items(self, library_id: str, search: str = "") -> dict:
         try:
             data = await self.loop.run_in_executor(
-                None, self.client.get_library_items, library_id, (search or None)
+                None, self.client.get_library_items, library_id, (search or None), 500
             )
             items = []
             for it in data.get("results", []):
                 media = it.get("media", {}) or {}
                 meta = media.get("metadata", {}) or {}
                 progress = it.get("userMediaProgress") or {}
+                series_data = meta.get("series") or []
+                series_name = meta.get("seriesName") or ""
+                if not series_name and isinstance(series_data, list) and series_data:
+                    series_name = series_data[0].get("name") or ""
+                elif not series_name and isinstance(series_data, str):
+                    series_name = series_data
                 items.append({
                     "id": it.get("id"),
                     "title": meta.get("title") or "Unknown title",
@@ -202,7 +209,16 @@ class Plugin:
                     "isFinished": progress.get("isFinished", False),
                     "currentTime": progress.get("currentTime", 0),
                     "coverUrl": self.client.cover_url(it.get("id")),
+                    "offline": self.downloader.is_downloaded(it.get("id")),
+                    "series": series_name,
+                    "lastPlayed": progress.get("lastUpdate", 0) or 0,
                 })
+            if not search:
+                items.sort(key=lambda item: (
+                    0 if item["lastPlayed"] else 1 if item["offline"] else 2,
+                    -float(item["lastPlayed"]) if item["lastPlayed"] else 0,
+                    item["title"].casefold(),
+                ))
             return {"success": True, "items": items}
         except ABSError as e:
             return {"success": False, "error": str(e), "items": []}
@@ -245,6 +261,22 @@ class Plugin:
                     "chapters": local_meta.get("chapters", []),
                     "downloadStatus": self.downloader.get_status(item_id),
                 }
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def get_cover(self, item_id: str) -> dict:
+        try:
+            local_path = self.downloader.local_cover_path(item_id)
+            if local_path:
+                with open(local_path, "rb") as f:
+                    image = f.read(2 * 1024 * 1024 + 1)
+                if len(image) > 2 * 1024 * 1024:
+                    return {"success": False, "error": "Cover image is larger than 2 MiB"}
+                return {"success": True, "dataUrl": "data:image/jpeg;base64," + base64.b64encode(image).decode("ascii")}
+            data_url = await self.loop.run_in_executor(None, self.client.cover_data_url, item_id)
+            return {"success": True, "dataUrl": data_url}
+        except ABSError as e:
             return {"success": False, "error": str(e)}
         except Exception as e:
             return {"success": False, "error": str(e)}

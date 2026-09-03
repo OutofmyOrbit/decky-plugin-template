@@ -80,6 +80,12 @@ class Downloader:
             tracks.append({"url": path, "startOffset": t["startOffset"], "duration": t["duration"]})
         return tracks
 
+    def local_cover_path(self, item_id: str) -> str | None:
+        meta = self.get_meta(item_id)
+        cover = meta.get("cover") if meta else None
+        path = os.path.join(self._item_dir(item_id), cover) if cover else None
+        return path if path and os.path.isfile(path) else None
+
     # ------------------------------------------------------------- actions
 
     def start_download(self, item_id: str, title: str, author: str, cover_url: str,

@@ -7,6 +7,7 @@ that no extra pip dependencies need to be installed on the Steam Deck.
 API reference: https://api.audiobookshelf.org/
 """
 import json
+import base64
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -116,6 +117,21 @@ class ABSClient:
     def cover_url(self, item_id: str) -> str:
         token_q = urllib.parse.quote(self.token)
         return f"{self.server_url}/api/items/{item_id}/cover?token={token_q}"
+
+    def cover_data_url(self, item_id: str) -> str:
+        url = self.cover_url(item_id)
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {self.token}"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                content_type = resp.headers.get_content_type() or "image/jpeg"
+                image = resp.read(2 * 1024 * 1024 + 1)
+        except urllib.error.HTTPError as e:
+            raise ABSError(f"HTTP {e.code}: unable to load cover", status=e.code) from e
+        except urllib.error.URLError as e:
+            raise ABSError(f"Connection failed: {e.reason}") from e
+        if len(image) > 2 * 1024 * 1024:
+            raise ABSError("Cover image is larger than 2 MiB")
+        return f"data:{content_type};base64,{base64.b64encode(image).decode('ascii')}"
 
     # ---- Playback sessions ----
 

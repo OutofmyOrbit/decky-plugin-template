@@ -45,7 +45,7 @@ function Content() {
       } catch {
         // ignore transient polling errors
       }
-    }, 1500);
+    }, 500);
     return () => clearInterval(interval);
   }, []);
 

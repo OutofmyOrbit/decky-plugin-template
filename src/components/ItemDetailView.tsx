@@ -165,7 +165,7 @@ export function ItemDetailView({
       {download.state === "downloading" && (
         <>
           <PanelSectionRow>
-            <ProgressBar nProgress={Math.min(1, Math.max(0, download.progress))} />
+            <ProgressBar nProgress={Math.min(100, Math.max(0, download.progress * 100))} />
           </PanelSectionRow>
           <PanelSectionRow>
             <ButtonItem layout="below" onClick={onCancelDownload}>
@@ -177,7 +177,7 @@ export function ItemDetailView({
       {download.state === "done" && (
         <PanelSectionRow>
           <ButtonItem layout="below" onClick={onDeleteDownload}>
-            {"Delete offline copy"}
+            {"Remove downloaded copy"}
           </ButtonItem>
         </PanelSectionRow>
       )}

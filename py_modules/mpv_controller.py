@@ -371,7 +371,10 @@ class MPVController:
             pause = await self._get_property("pause")
             time_pos = await self._get_property("time-pos") or 0.0
             playlist_pos = await self._get_property("playlist-pos") or 0
+            track_duration = await self._get_property("duration") or 0.0
             speed = await self._get_property("speed") or 1.0
+        if len(self.tracks) == 1 and track_duration > 0:
+            self.total_duration = track_duration
         global_time = self._global_time(playlist_pos, time_pos)
         idx, chapter = self._chapter_at(global_time)
         return {

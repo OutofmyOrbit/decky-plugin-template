@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   PanelSection,
   PanelSectionRow,
@@ -17,6 +17,8 @@ import {
   setChapter,
   setPlaybackSpeed,
 } from "../api";
+import { FaDownload } from "react-icons/fa";
+import { CoverImage } from "./CoverImage";
 
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 0) seconds = 0;
@@ -28,7 +30,7 @@ function formatTime(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
+const SPEEDS = [0.75, 1, 1.1, 1.2, 1.25, 1.5, 1.75, 2];
 
 export function PlayerView({
   state,
@@ -38,11 +40,34 @@ export function PlayerView({
   onStopped: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [displayTime, setDisplayTime] = useState(state.currentTime);
+  const timeAnchor = useRef({ time: state.currentTime, receivedAt: Date.now(), playing: state.playing });
+  const playerHeader = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    timeAnchor.current = { time: state.currentTime, receivedAt: Date.now(), playing: state.playing };
+    setDisplayTime(state.currentTime);
+  }, [state.currentTime, state.playing]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const anchor = timeAnchor.current;
+      const elapsed = anchor.playing ? (Date.now() - anchor.receivedAt) / 1000 : 0;
+      setDisplayTime(Math.min(state.duration, anchor.time + elapsed * state.speed));
+    }, 250);
+    return () => clearInterval(interval);
+  }, [state.duration, state.speed]);
 
   const np = state.nowPlaying;
   if (!np) return null;
 
-  const progress = state.duration > 0 ? state.currentTime / state.duration : 0;
+  const progress = state.duration > 0 ? displayTime / state.duration : 0;
+  const chapter = state.chapterIndex >= 0 ? state.chapters[state.chapterIndex] : null;
+  const chapterEnd = chapter?.end || state.duration;
+  const chapterDuration = chapter ? chapterEnd - chapter.start : 0;
+  const chapterProgress = chapterDuration > 0
+    ? (displayTime - chapter!.start) / chapterDuration
+    : 0;
 
   const wrap = (fn: () => Promise<any>) => async () => {
     setBusy(true);
@@ -54,61 +79,68 @@ export function PlayerView({
   };
 
   const speedIndex = Math.max(0, SPEEDS.findIndex((s) => Math.abs(s - state.speed) < 0.01));
+  const scrollPlayerHeaderIntoView = () => playerHeader.current?.scrollIntoView({ block: "start" });
 
   return (
     <PanelSection title="Now Playing">
       <PanelSectionRow>
-        <Focusable style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          {np.coverUrl && (
-            <img
-              src={np.coverUrl}
-              alt=""
-              style={{ width: "64px", height: "64px", objectFit: "cover", borderRadius: "4px", flexShrink: 0 }}
-            />
-          )}
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: "bold" }}>{np.title}</div>
-            {np.author && <div>{np.author}</div>}
-            {np.offline && <div>Offline copy</div>}
-          </div>
-        </Focusable>
+        <div ref={playerHeader}>
+          <Focusable onFocus={scrollPlayerHeaderIntoView} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <CoverImage itemId={np.itemId} size={64} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: "bold" }}>{np.title}</div>
+              {np.author && <div>{np.author}</div>}
+              {np.offline && <FaDownload aria-label="Downloaded" />}
+            </div>
+          </Focusable>
+        </div>
       </PanelSectionRow>
-      {state.chapterTitle && (
-        <PanelSectionRow>
-          <div>{state.chapterTitle}</div>
-        </PanelSectionRow>
+      {chapter && (
+        <>
+          <PanelSectionRow><div>{state.chapterTitle}</div></PanelSectionRow>
+          <PanelSectionRow>
+            <ProgressBar nProgress={Math.min(100, Math.max(0, chapterProgress * 100))} />
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <div>{formatTime(displayTime - chapter.start)} / {formatTime(chapterDuration)}</div>
+          </PanelSectionRow>
+        </>
       )}
       <PanelSectionRow>
-        <ProgressBar nProgress={Math.min(1, Math.max(0, progress))} />
+        <ProgressBar nProgress={Math.min(100, Math.max(0, progress * 100))} />
       </PanelSectionRow>
       <PanelSectionRow>
         <div>
-          {formatTime(state.currentTime)} / {formatTime(state.duration)}
+          {formatTime(displayTime)} / {formatTime(state.duration)}
         </div>
       </PanelSectionRow>
       <PanelSectionRow>
-        <Focusable style={{ display: "flex", gap: "8px" }}>
-          <ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(-30))}>
-            {"⏪ 30s"}
-          </ButtonItem>
-          <ButtonItem layout="below" disabled={busy} onClick={wrap(() => togglePause())}>
-            {state.playing ? "Pause" : "Play"}
-          </ButtonItem>
-          <ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(30))}>
-            {"30s ⏩"}
-          </ButtonItem>
-        </Focusable>
+        <ButtonItem layout="below" disabled={busy} onClick={wrap(() => togglePause())}>
+          {state.playing ? "Pause" : "Play"}
+        </ButtonItem>
       </PanelSectionRow>
       <PanelSectionRow>
-        <Focusable style={{ display: "flex", gap: "8px" }}>
-          <ButtonItem layout="below" disabled={busy} onClick={wrap(() => prevChapter())}>
-            {"⏮ Chapter"}
-          </ButtonItem>
-          <ButtonItem layout="below" disabled={busy} onClick={wrap(() => nextChapter())}>
-            {"Chapter ⏭"}
-          </ButtonItem>
+        <Focusable style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%" }}>
+          <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(-10))}>
+            {"< 10s"}
+          </ButtonItem></div>
+          <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(10))}>
+            {"10s >"}
+          </ButtonItem></div>
         </Focusable>
       </PanelSectionRow>
+      {state.chapters && state.chapters.length > 0 && (
+        <PanelSectionRow>
+          <Focusable style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%" }}>
+            <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => prevChapter())}>
+              {"< Chapter"}
+            </ButtonItem></div>
+            <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => nextChapter())}>
+              {"Chapter >"}
+            </ButtonItem></div>
+          </Focusable>
+        </PanelSectionRow>
+      )}
       {state.chapters && state.chapters.length > 0 && (
         <PanelSectionRow>
           <Dropdown
