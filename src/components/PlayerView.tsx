@@ -58,13 +58,21 @@ export function PlayerView({
   return (
     <PanelSection title="Now Playing">
       <PanelSectionRow>
-        <div style={{ fontWeight: "bold" }}>{np.title}</div>
+        <Focusable style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          {np.coverUrl && (
+            <img
+              src={np.coverUrl}
+              alt=""
+              style={{ width: "64px", height: "64px", objectFit: "cover", borderRadius: "4px", flexShrink: 0 }}
+            />
+          )}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: "bold" }}>{np.title}</div>
+            {np.author && <div>{np.author}</div>}
+            {np.offline && <div>Offline copy</div>}
+          </div>
+        </Focusable>
       </PanelSectionRow>
-      {np.author && (
-        <PanelSectionRow>
-          <div>{np.author}</div>
-        </PanelSectionRow>
-      )}
       {state.chapterTitle && (
         <PanelSectionRow>
           <div>{state.chapterTitle}</div>

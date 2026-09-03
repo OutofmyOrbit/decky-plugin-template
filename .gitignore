@@ -49,6 +49,13 @@ backend/out
 # Make sure to ignore any instance of the loader's decky_plugin.py
 decky_plugin.py
 
+# Local dev harness scratch data (dev/local_test.py)
+dev/.dev-data
+
+# Personal bundled mpv binary (see README > mpv installation) - not committed,
+# it's specific to whoever built/copied it and shouldn't bloat the repo.
+/bin/
+
 # Ignore decky CLI for building plugins
 out
 out/*

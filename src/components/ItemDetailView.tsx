@@ -1,6 +1,17 @@
-import { useEffect, useState } from "react";
-import { PanelSection, PanelSectionRow, ButtonItem } from "@decky/ui";
-import { getItemDetails, playItem, ItemDetails } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { PanelSection, PanelSectionRow, ButtonItem, ProgressBar } from "@decky/ui";
+import {
+  getItemDetails,
+  playItem,
+  downloadItem,
+  cancelDownload,
+  deleteDownload,
+  getDownloadStatus,
+  getMpvStatus,
+  installMpv,
+  ItemDetails,
+  DownloadStatus,
+} from "../api";
 
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 0) seconds = 0;
@@ -24,16 +35,42 @@ export function ItemDetailView({
   const [details, setDetails] = useState<ItemDetails | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [download, setDownload] = useState<DownloadStatus>({ state: "none", progress: 0 });
+  const [mpvAvailable, setMpvAvailable] = useState(true);
+  const [installingMpv, setInstallingMpv] = useState(false);
+  const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
     (async () => {
       const result = await getItemDetails(itemId);
       setDetails(result);
-      if (!result.success) {
+      if (result.success) {
+        setDownload(result.downloadStatus ?? { state: "none", progress: 0 });
+      } else {
         setError(result.error ?? "Failed to load item");
       }
+      const mpv = await getMpvStatus();
+      setMpvAvailable(mpv.available);
     })();
   }, [itemId]);
+
+  // Poll download progress while a download is in flight.
+  useEffect(() => {
+    if (download.state !== "downloading") {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+    pollRef.current = window.setInterval(async () => {
+      const status = await getDownloadStatus(itemId);
+      setDownload(status);
+    }, 1000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [download.state, itemId]);
 
   const onPlay = async () => {
     setBusy(true);
@@ -45,6 +82,38 @@ export function ItemDetailView({
     } else {
       setError(result.error ?? "Failed to start playback");
     }
+  };
+
+  const onInstallMpv = async () => {
+    setInstallingMpv(true);
+    setError(null);
+    const result = await installMpv();
+    setInstallingMpv(false);
+    if (result.success) {
+      setMpvAvailable(true);
+    } else {
+      setError(result.error ?? "Failed to install mpv");
+    }
+  };
+
+  const onDownload = async () => {
+    setError(null);
+    const result = await downloadItem(itemId);
+    if (result.success) {
+      setDownload({ state: "downloading", progress: 0 });
+    } else {
+      setError(result.error ?? "Failed to start download");
+    }
+  };
+
+  const onCancelDownload = async () => {
+    await cancelDownload(itemId);
+    setDownload({ state: "none", progress: 0 });
+  };
+
+  const onDeleteDownload = async () => {
+    await deleteDownload(itemId);
+    setDownload({ state: "none", progress: 0 });
   };
 
   const hasProgress = (details?.currentTime ?? 0) > 1;
@@ -71,14 +140,57 @@ export function ItemDetailView({
           <div>{error}</div>
         </PanelSectionRow>
       )}
+      {!mpvAvailable && (
+        <>
+          <PanelSectionRow>
+            <div>mpv is required for playback and wasn't found on this system.</div>
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <ButtonItem layout="below" disabled={installingMpv} onClick={onInstallMpv}>
+              {installingMpv ? "Installing mpv..." : "Install mpv (via Flatpak)"}
+            </ButtonItem>
+          </PanelSectionRow>
+        </>
+      )}
       <PanelSectionRow>
-        <ButtonItem layout="below" disabled={busy} onClick={onPlay}>
+        <ButtonItem layout="below" disabled={busy || !mpvAvailable} onClick={onPlay}>
           {busy ? "Starting..." : hasProgress ? `Resume at ${formatTime(details!.currentTime!)}` : "Play"}
         </ButtonItem>
       </PanelSectionRow>
       {details?.chapters && details.chapters.length > 0 && (
         <PanelSectionRow>
           <div>{details.chapters.length} chapters</div>
+        </PanelSectionRow>
+      )}
+      {download.state === "downloading" && (
+        <>
+          <PanelSectionRow>
+            <ProgressBar nProgress={Math.min(1, Math.max(0, download.progress))} />
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <ButtonItem layout="below" onClick={onCancelDownload}>
+              {`Cancel download (${Math.round(download.progress * 100)}%)`}
+            </ButtonItem>
+          </PanelSectionRow>
+        </>
+      )}
+      {download.state === "done" && (
+        <PanelSectionRow>
+          <ButtonItem layout="below" onClick={onDeleteDownload}>
+            {"Delete offline copy"}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      {(download.state === "none" || download.state === "error") && (
+        <PanelSectionRow>
+          <ButtonItem layout="below" onClick={onDownload}>
+            {"Download for offline playback"}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      {download.state === "error" && download.error && (
+        <PanelSectionRow>
+          <div>Download failed: {download.error}</div>
         </PanelSectionRow>
       )}
     </PanelSection>

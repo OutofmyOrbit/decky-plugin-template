@@ -1,19 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   PanelSection,
   PanelSectionRow,
   ButtonItem,
   TextField,
+  ToggleField,
   Field,
 } from "@decky/ui";
-import { login } from "../api";
+import { getConfig, login } from "../api";
 
 export function LoginView({ onLoggedIn }: { onLoggedIn: (username: string) => void }) {
   const [serverUrl, setServerUrl] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const cfg = await getConfig();
+      if (cfg.server_url) setServerUrl(cfg.server_url);
+      if (cfg.username) setUsername(cfg.username);
+    })();
+  }, []);
 
   const canSubmit = serverUrl.trim().length > 0 && username.trim().length > 0 && !busy;
 
@@ -21,7 +31,7 @@ export function LoginView({ onLoggedIn }: { onLoggedIn: (username: string) => vo
     setBusy(true);
     setError(null);
     try {
-      const result = await login(serverUrl, username, password);
+      const result = await login(serverUrl, username, password, remember);
       if (result.success) {
         onLoggedIn(result.username ?? username);
       } else {
@@ -57,6 +67,14 @@ export function LoginView({ onLoggedIn }: { onLoggedIn: (username: string) => vo
           bIsPassword
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+        />
+      </PanelSectionRow>
+      <PanelSectionRow>
+        <ToggleField
+          label="Remember me"
+          description="Save credentials so this device logs back in automatically"
+          checked={remember}
+          onChange={setRemember}
         />
       </PanelSectionRow>
       {error && (

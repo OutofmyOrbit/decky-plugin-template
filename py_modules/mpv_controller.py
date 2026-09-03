@@ -4,8 +4,9 @@ Headless mpv playback controller driven over its JSON IPC socket.
 mpv is spawned as a subprocess (`--idle=yes --input-ipc-server=<socket>`) and
 every control action (play/pause/seek/chapter) is sent as a JSON command over
 that socket. This avoids any extra Python dependencies (no python-mpv/libmpv
-bindings needed) - only the `mpv` binary must be present on the system, which
-it is by default on SteamOS.
+bindings needed). A working `mpv` is located in this order: a bundled binary
+at `<plugin_dir>/bin/mpv` (if the user placed one there), a system `mpv`
+binary, or the mpv Flatpak on Flathub as a last resort.
 """
 import asyncio
 import json
@@ -19,12 +20,23 @@ class MPVError(Exception):
     pass
 
 
+# Community-maintained mpv Flatpak on Flathub, used as an install fallback when no
+# system `mpv` binary is present (e.g. some SteamOS versions/images).
+MPV_FLATPAK_ID = "io.mpv.Mpv"
+MPV_FLATPAK_REMOTE_URL = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+# Optional user-supplied binary, e.g. compiled/copied straight from the Deck itself.
+BUNDLED_MPV_RELPATH = os.path.join("bin", "mpv")
+
+
 class MPVController:
-    def __init__(self, logger, runtime_dir: str):
+    def __init__(self, logger, runtime_dir: str, plugin_dir: str | None = None):
         self.logger = logger
         self.runtime_dir = runtime_dir
+        self.plugin_dir = plugin_dir
         self.proc: subprocess.Popen | None = None
         self.ipc_path: str | None = None
+        self.log_path: str | None = None
         self.tracks: list[dict] = []
         self.chapters: list[dict] = []
         self.total_duration: float = 0.0
@@ -32,9 +44,68 @@ class MPVController:
 
     # ---------------------------------------------------------------- utils
 
+    def _bundled_mpv_path(self) -> str | None:
+        if not self.plugin_dir:
+            return None
+        path = os.path.join(self.plugin_dir, BUNDLED_MPV_RELPATH)
+        return path if os.path.isfile(path) and os.access(path, os.X_OK) else None
+
+    def mpv_available(self) -> bool:
+        return (
+            self._bundled_mpv_path() is not None
+            or shutil.which("mpv") is not None
+            or MPVController._flatpak_mpv_installed()
+        )
+
     @staticmethod
-    def mpv_available() -> bool:
-        return shutil.which("mpv") is not None
+    def _flatpak_mpv_installed() -> bool:
+        if not shutil.which("flatpak"):
+            return False
+        try:
+            result = subprocess.run(
+                ["flatpak", "info", MPV_FLATPAK_ID],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def _mpv_command(self) -> list[str] | None:
+        """Returns the argv prefix used to launch mpv, preferring a bundled/system binary."""
+        bundled = self._bundled_mpv_path()
+        if bundled:
+            return [bundled]
+        if shutil.which("mpv"):
+            return ["mpv"]
+        if MPVController._flatpak_mpv_installed():
+            # Grant this run access to our runtime dir (for the IPC socket) and force
+            # pulseaudio access in case the sandbox's own permission got overridden.
+            return ["flatpak", "run", f"--filesystem={self.runtime_dir}", "--socket=pulseaudio", MPV_FLATPAK_ID]
+        return None
+
+    @staticmethod
+    def install_mpv_flatpak() -> tuple[bool, str]:
+        """Installs mpv from Flathub via `flatpak install --user`. Blocking; run in an executor."""
+        if not shutil.which("flatpak"):
+            return False, "Flatpak is not available on this system"
+        try:
+            subprocess.run(
+                ["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", MPV_FLATPAK_REMOTE_URL],
+                check=True, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            result = subprocess.run(
+                ["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", MPV_FLATPAK_ID],
+                capture_output=True, text=True, timeout=600,
+            )
+            if result.returncode != 0:
+                return False, (result.stderr or result.stdout or "flatpak install failed").strip()
+            return True, ""
+        except subprocess.TimeoutExpired:
+            return False, "Installing mpv timed out"
+        except subprocess.CalledProcessError as e:
+            return False, f"Failed to add Flathub remote: {e}"
+        except Exception as e:
+            return False, str(e)
 
     def _locate(self, global_time: float):
         """Returns (track_index, local_offset_seconds) for a global time position."""
@@ -97,9 +168,22 @@ class MPVController:
     async def _set_property(self, name: str, value):
         await self._send({"command": ["set_property", name, value]})
 
+    def _log_tail(self, lines: int = 40) -> str:
+        if not self.log_path or not os.path.exists(self.log_path):
+            return ""
+        try:
+            with open(self.log_path, "r", encoding="utf-8", errors="replace") as f:
+                return "".join(f.readlines()[-lines:]).strip()
+        except OSError:
+            return ""
+
     async def _wait_for_socket(self, timeout: float = 8.0):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            if self.proc is not None and self.proc.poll() is not None:
+                tail = self._log_tail()
+                detail = f": {tail}" if tail else " (no output captured)"
+                raise MPVError(f"mpv exited immediately (code {self.proc.returncode}){detail}")
             if self.ipc_path and os.path.exists(self.ipc_path):
                 # give mpv a beat to actually start listening on it
                 for _ in range(20):
@@ -111,14 +195,17 @@ class MPVController:
                         await asyncio.sleep(0.1)
                 return
             await asyncio.sleep(0.1)
-        raise MPVError("Timed out waiting for mpv to start")
+        tail = self._log_tail()
+        detail = f": {tail}" if tail else ""
+        raise MPVError(f"Timed out waiting for mpv to start{detail}")
 
     # ------------------------------------------------------------ lifecycle
 
     async def start(self, tracks: list[dict], chapters: list[dict], start_time: float):
         """tracks: [{url, startOffset, duration}, ...] ordered by playback order."""
-        if not self.mpv_available():
-            raise MPVError("mpv binary not found. Install mpv to enable audio playback.")
+        mpv_cmd = self._mpv_command()
+        if not mpv_cmd:
+            raise MPVError("mpv is not installed. Install mpv, then try again.")
 
         await self.stop()
 
@@ -135,24 +222,38 @@ class MPVController:
                 os.remove(self.ipc_path)
             except OSError:
                 pass
+        self.log_path = os.path.join(self.runtime_dir, "mpv-last-run.log")
 
         idx, local = self._locate(start_time or 0.0)
 
-        args = [
-            "mpv",
+        args = mpv_cmd + [
             "--no-video",
             "--idle=yes",
-            "--really-quiet",
+            "--quiet",
             "--no-terminal",
             f"--input-ipc-server={self.ipc_path}",
             f"--start={local:.3f}",
         ] + [t["url"] for t in tracks]
 
-        self.logger.info(f"Starting mpv: {' '.join(args[:6])} ... ({len(tracks)} track(s))")
-        self.proc = subprocess.Popen(
-            args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-        )
+        # Flatpak (and mpv itself) need a valid runtime dir to reach the desktop's
+        # audio/display sockets; fall back to the standard paths if they're missing
+        # from the environment we inherited (e.g. when spawned from a root parent
+        # process that never joined the "deck" user's desktop session).
+        env = dict(os.environ)
+        env.pop("LD_LIBRARY_PATH", None)
+        uid = os.getuid()
+        env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{uid}")
+        env.setdefault("PULSE_SERVER", f"unix:/run/user/{uid}/pulse/native")
+
+        self.logger.info(f"Starting mpv: {' '.join(args)} ({len(tracks)} track(s))")
+        log_file = open(self.log_path, "w", encoding="utf-8")
+        try:
+            self.proc = subprocess.Popen(
+                args, stdout=log_file, stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL, env=env,
+            )
+        finally:
+            log_file.close()
 
         try:
             await self._wait_for_socket()

@@ -33,6 +33,7 @@ export interface ItemDetails {
   currentTime?: number;
   coverUrl?: string;
   chapters?: Chapter[];
+  downloadStatus?: DownloadStatus;
 }
 
 export interface NowPlaying {
@@ -40,6 +41,7 @@ export interface NowPlaying {
   title: string;
   author: string;
   coverUrl: string;
+  offline?: boolean;
 }
 
 export interface PlayerState {
@@ -58,6 +60,7 @@ export interface ConfigResult {
   configured: boolean;
   server_url: string;
   username: string;
+  hasSavedCredentials: boolean;
 }
 
 export interface BasicResult {
@@ -65,10 +68,26 @@ export interface BasicResult {
   error?: string;
 }
 
+export interface DownloadStatus {
+  state: "none" | "downloading" | "done" | "error";
+  progress: number;
+  error?: string | null;
+}
+
+export interface DownloadedItem {
+  itemId: string;
+  title: string;
+  author: string;
+}
+
+export interface MpvStatus {
+  available: boolean;
+}
+
 // ---- config / auth ----
 export const getConfig = callable<[], ConfigResult>("get_config");
 export const login = callable<
-  [server_url: string, username: string, password: string],
+  [server_url: string, username: string, password: string, remember: boolean],
   BasicResult & { username?: string }
 >("login");
 export const logout = callable<[], BasicResult>("logout");
@@ -88,6 +107,21 @@ export const getLibraryItems = callable<
 export const getItemDetails = callable<[item_id: string], ItemDetails>(
   "get_item_details"
 );
+
+// ---- offline downloads ----
+export const downloadItem = callable<[item_id: string], BasicResult>("download_item");
+export const cancelDownload = callable<[item_id: string], BasicResult>("cancel_download");
+export const deleteDownload = callable<[item_id: string], BasicResult>("delete_download");
+export const getDownloadStatus = callable<[item_id: string], DownloadStatus>(
+  "get_download_status"
+);
+export const listDownloads = callable<[], BasicResult & { items: DownloadedItem[] }>(
+  "list_downloads"
+);
+
+// ---- mpv ----
+export const getMpvStatus = callable<[], MpvStatus>("get_mpv_status");
+export const installMpv = callable<[], BasicResult>("install_mpv");
 
 // ---- playback ----
 export const playItem = callable<[item_id: string], BasicResult>("play_item");

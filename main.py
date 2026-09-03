@@ -7,6 +7,7 @@ import decky
 
 from abs_client import ABSClient, ABSError
 from mpv_controller import MPVController, MPVError
+from downloader import Downloader
 
 SYNC_INTERVAL_SECONDS = 20
 
@@ -19,7 +20,10 @@ class Plugin:
     async def _main(self):
         self.loop = asyncio.get_event_loop()
         self.client = ABSClient()
-        self.mpv = MPVController(decky.logger, decky.DECKY_PLUGIN_RUNTIME_DIR)
+        self.mpv = MPVController(decky.logger, decky.DECKY_PLUGIN_RUNTIME_DIR, decky.DECKY_PLUGIN_DIR)
+        self.downloader = Downloader(
+            decky.logger, os.path.join(decky.DECKY_PLUGIN_RUNTIME_DIR, "downloads")
+        )
 
         self.session_id: str | None = None
         self.now_playing: dict | None = None
@@ -28,6 +32,7 @@ class Plugin:
         self._sync_task: asyncio.Task | None = None
 
         self._load_config()
+        await self._auto_login()
         decky.logger.info("Audiobookshelf plugin started")
 
     async def _unload(self):
@@ -56,6 +61,9 @@ class Plugin:
         self.client.set_server_url(cfg.get("server_url", ""))
         self.client.set_token(cfg.get("token", ""))
         self._username = cfg.get("username", "")
+        # Stored only when the user opts in ("remember me") so that a saved token going
+        # stale (e.g. server restart, password change) can be silently refreshed.
+        self._password = cfg.get("password", "")
 
     def _save_config(self):
         os.makedirs(decky.DECKY_PLUGIN_SETTINGS_DIR, exist_ok=True)
@@ -64,7 +72,30 @@ class Plugin:
                 "server_url": self.client.server_url,
                 "token": self.client.token,
                 "username": getattr(self, "_username", ""),
+                "password": getattr(self, "_password", ""),
             }, f)
+
+    async def _auto_login(self):
+        """Called on plugin start: validate any saved token, and if it's gone stale,
+        transparently re-authenticate using saved credentials (if remembered)."""
+        if self.client.configured:
+            try:
+                await self.loop.run_in_executor(None, self.client.get_me)
+                return
+            except Exception as e:
+                decky.logger.info(f"Saved session is no longer valid ({e}); will try saved credentials")
+        if self.client.server_url and self._username and self._password:
+            try:
+                result = await self.loop.run_in_executor(
+                    None, self.client.login, self._username, self._password
+                )
+                token = result.get("user", {}).get("token")
+                if token:
+                    self.client.set_token(token)
+                    self._save_config()
+                    decky.logger.info("Automatically re-authenticated using saved credentials")
+            except Exception as e:
+                decky.logger.warning(f"Automatic re-login failed: {e}")
 
     # ------------------------------------------------------------- auth api
 
@@ -73,9 +104,10 @@ class Plugin:
             "configured": self.client.configured,
             "server_url": self.client.server_url,
             "username": getattr(self, "_username", ""),
+            "hasSavedCredentials": bool(self._username and self._password),
         }
 
-    async def login(self, server_url: str, username: str, password: str) -> dict:
+    async def login(self, server_url: str, username: str, password: str, remember: bool = True) -> dict:
         server_url = (server_url or "").strip().rstrip("/")
         if not server_url.startswith("http://") and not server_url.startswith("https://"):
             server_url = "http://" + server_url
@@ -90,6 +122,7 @@ class Plugin:
                 return {"success": False, "error": "No token returned by server"}
             self.client.set_token(token)
             self._username = user.get("username", username)
+            self._password = password if remember else ""
             self._save_config()
             return {"success": True, "username": self._username}
         except ABSError as e:
@@ -108,6 +141,7 @@ class Plugin:
         await self.mpv.stop()
         self.client.set_token("")
         self._username = ""
+        self._password = ""
         self._save_config()
         return {"success": True}
 
@@ -116,9 +150,24 @@ class Plugin:
             me = await self.loop.run_in_executor(None, self.client.get_me)
             return {"success": True, "username": me.get("username")}
         except ABSError as e:
+            # Token may have gone stale (server restart, password change, etc) - try
+            # a silent re-login with saved credentials before reporting failure.
+            if self._username and self._password:
+                try:
+                    result = await self.loop.run_in_executor(
+                        None, self.client.login, self._username, self._password
+                    )
+                    token = result.get("user", {}).get("token")
+                    if token:
+                        self.client.set_token(token)
+                        self._save_config()
+                        return {"success": True, "username": self._username}
+                except Exception:
+                    pass
             return {"success": False, "error": str(e)}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
 
     # ------------------------------------------------------------- library api
 
@@ -179,17 +228,82 @@ class Plugin:
                     {"id": c.get("id"), "title": c.get("title"), "start": c.get("start"), "end": c.get("end")}
                     for c in chapters
                 ],
+                "downloadStatus": self.downloader.get_status(item_id),
             }
         except ABSError as e:
+            # Offline fallback: still show basic details for a downloaded item.
+            local_meta = self.downloader.get_meta(item_id)
+            if local_meta:
+                return {
+                    "success": True,
+                    "id": item_id,
+                    "title": local_meta.get("title") or "Unknown title",
+                    "author": local_meta.get("author") or "",
+                    "duration": sum(t.get("duration", 0) for t in local_meta.get("tracks", [])),
+                    "currentTime": 0,
+                    "coverUrl": self.client.cover_url(item_id) if self.client.configured else "",
+                    "chapters": local_meta.get("chapters", []),
+                    "downloadStatus": self.downloader.get_status(item_id),
+                }
             return {"success": False, "error": str(e)}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    # ------------------------------------------------------------- downloads api
+
+    async def get_download_status(self, item_id: str) -> dict:
+        return self.downloader.get_status(item_id)
+
+    async def list_downloads(self) -> dict:
+        return {"success": True, "items": self.downloader.list_downloaded()}
+
+    async def download_item(self, item_id: str) -> dict:
+        try:
+            item = await self.loop.run_in_executor(None, self.client.get_item, item_id)
+        except ABSError as e:
+            return {"success": False, "error": str(e)}
+        media = item.get("media", {}) or {}
+        meta = media.get("metadata", {}) or {}
+        tracks_raw = media.get("tracks", []) or []
+        if not tracks_raw:
+            return {"success": False, "error": "This item has no downloadable audio tracks"}
+        tracks = [{
+            "url": self.client.media_url(t["contentUrl"]),
+            "startOffset": t.get("startOffset", 0),
+            "duration": t.get("duration", 0),
+        } for t in sorted(tracks_raw, key=lambda t: t.get("index", 0))]
+        chapters = [
+            {"id": c.get("id"), "title": c.get("title"), "start": c.get("start"), "end": c.get("end")}
+            for c in media.get("chapters", []) or []
+        ]
+        title = meta.get("title") or "Unknown title"
+        author = meta.get("authorName") or meta.get("author") or ""
+        cover_url = self.client.cover_url(item_id)
+        self.downloader.start_download(item_id, title, author, cover_url, tracks, chapters)
+        return {"success": True}
+
+    async def cancel_download(self, item_id: str) -> dict:
+        self.downloader.cancel_download(item_id)
+        return {"success": True}
+
+    async def delete_download(self, item_id: str) -> dict:
+        self.downloader.delete(item_id)
+        return {"success": True}
+
+    # ------------------------------------------------------------- mpv api
+
+    async def get_mpv_status(self) -> dict:
+        return {"available": self.mpv.mpv_available()}
+
+    async def install_mpv(self) -> dict:
+        ok, error = await self.loop.run_in_executor(None, MPVController.install_mpv_flatpak)
+        return {"success": ok, "error": error or None}
+
     # ------------------------------------------------------------- playback api
 
     async def play_item(self, item_id: str) -> dict:
-        if not MPVController.mpv_available():
-            return {"success": False, "error": "mpv is not installed on this system"}
+        if not self.mpv.mpv_available():
+            return {"success": False, "error": 'mpv is not installed. Use the "Install mpv" button below, then try again.'}
         try:
             await self._stop_sync_loop()
             try:
@@ -197,38 +311,68 @@ class Plugin:
             except Exception:
                 pass
 
-            session = await self.loop.run_in_executor(
-                None, self.client.start_playback_session, item_id, None
-            )
-            audio_tracks = session.get("audioTracks", []) or []
-            if not audio_tracks:
-                return {"success": False, "error": "This item has no playable audio tracks"}
+            # Prefer an already-downloaded copy so we don't re-stream, and so playback
+            # keeps working even with no connection to the server.
+            local_tracks = self.downloader.local_tracks(item_id)
+            local_meta = self.downloader.get_meta(item_id) if local_tracks else None
 
-            tracks = [{
-                "url": self.client.media_url(t["contentUrl"]),
-                "startOffset": t.get("startOffset", 0),
-                "duration": t.get("duration", 0),
-            } for t in sorted(audio_tracks, key=lambda t: t.get("index", 0))]
+            session_id = None
+            if local_tracks:
+                tracks = local_tracks
+                chapters = local_meta.get("chapters", []) or []
+                title = local_meta.get("title") or "Unknown title"
+                author = local_meta.get("author") or ""
+                cover_url = self.client.cover_url(item_id) if self.client.configured else ""
+                start_time = 0
+                # Best-effort: still start a real session (for resume position + progress
+                # sync) if the server is reachable, but don't fail offline playback if not.
+                if self.client.configured:
+                    try:
+                        session = await self.loop.run_in_executor(
+                            None, self.client.start_playback_session, item_id, None
+                        )
+                        session_id = session.get("id")
+                        start_time = session.get("currentTime", 0) or 0
+                    except Exception as e:
+                        decky.logger.info(f"Playing downloaded copy without a live session: {e}")
+            else:
+                session = await self.loop.run_in_executor(
+                    None, self.client.start_playback_session, item_id, None
+                )
+                audio_tracks = session.get("audioTracks", []) or []
+                if not audio_tracks:
+                    return {"success": False, "error": "This item has no playable audio tracks"}
 
-            chapters = [
-                {"id": c.get("id"), "title": c.get("title"), "start": c.get("start"), "end": c.get("end")}
-                for c in session.get("chapters", []) or []
-            ]
+                tracks = [{
+                    "url": self.client.media_url(t["contentUrl"]),
+                    "startOffset": t.get("startOffset", 0),
+                    "duration": t.get("duration", 0),
+                } for t in sorted(audio_tracks, key=lambda t: t.get("index", 0))]
 
-            start_time = session.get("currentTime", 0) or 0
+                chapters = [
+                    {"id": c.get("id"), "title": c.get("title"), "start": c.get("start"), "end": c.get("end")}
+                    for c in session.get("chapters", []) or []
+                ]
+                title = session.get("displayTitle") or "Unknown title"
+                author = session.get("displayAuthor") or ""
+                cover_url = self.client.cover_url(item_id)
+                start_time = session.get("currentTime", 0) or 0
+                session_id = session.get("id")
 
             await self.mpv.start(tracks, chapters, start_time)
 
-            self.session_id = session.get("id")
+            self.session_id = session_id
             self.now_playing = {
                 "itemId": item_id,
-                "title": session.get("displayTitle") or "Unknown title",
-                "author": session.get("displayAuthor") or "",
-                "coverUrl": self.client.cover_url(item_id),
+                "title": title,
+                "author": author,
+                "coverUrl": cover_url,
+                "offline": local_tracks is not None,
             }
             self._last_sync_wall = time.monotonic()
             self._last_synced_time = start_time
-            self._start_sync_loop()
+            if self.session_id:
+                self._start_sync_loop()
             return {"success": True}
         except (ABSError, MPVError) as e:
             decky.logger.warning(f"play_item failed: {e}")
