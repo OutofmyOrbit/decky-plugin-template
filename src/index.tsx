@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { staticClasses, PanelSection, PanelSectionRow, ButtonItem } from "@decky/ui";
 import { definePlugin } from "@decky/api";
 import { FaHeadphones } from "react-icons/fa";
@@ -24,6 +24,7 @@ const EMPTY_PLAYER_STATE: PlayerState = {
 };
 
 function Content() {
+  const contentTopRef = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<Screen>("loading");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState>(EMPTY_PLAYER_STATE);
@@ -50,7 +51,7 @@ function Content() {
   }, []);
 
   return (
-    <>
+    <div ref={contentTopRef}>
       {playerState.nowPlaying && (
         <PlayerView
           state={playerState}
@@ -105,7 +106,18 @@ function Content() {
           </PanelSectionRow>
         </PanelSection>
       )}
-    </>
+
+      <PanelSection title="Scroll to Top">
+        <PanelSectionRow>
+          <ButtonItem
+            layout="below"
+            onClick={() => contentTopRef.current?.scrollIntoView({ block: "start", behavior: "auto" })}
+          >
+            {"Scroll to Top"}
+          </ButtonItem>
+        </PanelSectionRow>
+      </PanelSection>
+    </div>
   );
 }
 
