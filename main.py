@@ -195,11 +195,13 @@ class Plugin:
                 meta = media.get("metadata", {}) or {}
                 progress = it.get("userMediaProgress") or {}
                 series_data = meta.get("series") or []
-                series_name = meta.get("seriesName") or ""
-                if not series_name and isinstance(series_data, list) and series_data:
+                series_name = ""
+                if isinstance(series_data, list) and series_data:
                     series_name = series_data[0].get("name") or ""
-                elif not series_name and isinstance(series_data, str):
+                elif isinstance(series_data, str):
                     series_name = series_data
+                if not series_name:
+                    series_name = meta.get("seriesName") or ""
                 items.append({
                     "id": it.get("id"),
                     "title": meta.get("title") or "Unknown title",

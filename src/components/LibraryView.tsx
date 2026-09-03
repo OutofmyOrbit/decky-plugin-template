@@ -60,6 +60,7 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
     .sort((left, right) => left.localeCompare(right));
   const series = [...new Set(items.map((item) => item.series).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right));
+  const seriesCount = (name: string) => items.filter((item) => item.series === name).length;
   const recentItems = items.filter((item) => item.currentTime > 0 && !item.isFinished);
   const offlineItems = items.filter((item) => item.offline && !recentItems.includes(item));
   const remainingItems = items.filter((item) => !recentItems.includes(item) && !offlineItems.includes(item));
@@ -114,17 +115,17 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
       </PanelSectionRow>
       {!search && browseMode === "items" && (
         <PanelSectionRow>
-          <Focusable style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%", textAlign: "center" }}>
             <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" onClick={() => { setBrowseMode("authors"); setBrowseValue(null); }}>Browse authors</ButtonItem></div>
             <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" onClick={() => { setBrowseMode("series"); setBrowseValue(null); }}>Browse series</ButtonItem></div>
-          </Focusable>
+          </div>
         </PanelSectionRow>
       )}
       {!search && browseMode !== "items" && !browseValue && (
         <>
           <PanelSectionRow><ButtonItem layout="below" onClick={() => setBrowseMode("items")}>{"< Back to library"}</ButtonItem></PanelSectionRow>
           {(browseMode === "authors" ? authors : series).map((name) => (
-            <PanelSectionRow key={name}><ButtonItem layout="below" onClick={() => setBrowseValue(name)}>{name}</ButtonItem></PanelSectionRow>
+            <PanelSectionRow key={name}><ButtonItem layout="below" onClick={() => setBrowseValue(name)}>{browseMode === "series" ? `${name} (${seriesCount(name)})` : name}</ButtonItem></PanelSectionRow>
           ))}
         </>
       )}

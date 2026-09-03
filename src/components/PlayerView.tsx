@@ -79,21 +79,22 @@ export function PlayerView({
   };
 
   const speedIndex = Math.max(0, SPEEDS.findIndex((s) => Math.abs(s - state.speed) < 0.01));
-  const scrollPlayerHeaderIntoView = () => playerHeader.current?.scrollIntoView({ block: "start" });
+  const scrollPlayerHeaderIntoView = () => playerHeader.current?.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
 
   return (
     <PanelSection title="Now Playing">
       <PanelSectionRow>
-        <div ref={playerHeader}>
-          <Focusable onFocus={scrollPlayerHeaderIntoView} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <CoverImage itemId={np.itemId} size={64} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: "bold" }}>{np.title}</div>
-              {np.author && <div>{np.author}</div>}
-              {np.offline && <FaDownload aria-label="Downloaded" />}
-            </div>
+        <Focusable ref={playerHeader} onFocus={scrollPlayerHeaderIntoView} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <CoverImage itemId={np.itemId} size={64} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: "bold" }}>{np.title}</div>
+            {np.author && <div>{np.author}</div>}
+            {np.offline && <FaDownload aria-label="Downloaded" />}
+          </div>
           </Focusable>
-        </div>
       </PanelSectionRow>
       {chapter && (
         <>
@@ -120,25 +121,25 @@ export function PlayerView({
         </ButtonItem>
       </PanelSectionRow>
       <PanelSectionRow>
-        <Focusable style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%", textAlign: "center" }}>
           <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(-10))}>
             {"< 10s"}
           </ButtonItem></div>
           <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(10))}>
             {"10s >"}
           </ButtonItem></div>
-        </Focusable>
+        </div>
       </PanelSectionRow>
       {state.chapters && state.chapters.length > 0 && (
         <PanelSectionRow>
-          <Focusable style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%", textAlign: "center" }}>
             <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => prevChapter())}>
               {"< Chapter"}
             </ButtonItem></div>
             <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => nextChapter())}>
               {"Chapter >"}
             </ButtonItem></div>
-          </Focusable>
+          </div>
         </PanelSectionRow>
       )}
       {state.chapters && state.chapters.length > 0 && (
