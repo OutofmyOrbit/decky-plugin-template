@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { staticClasses, PanelSection, PanelSectionRow, ButtonItem } from "@decky/ui";
+import { staticClasses, PanelSection, PanelSectionRow, ButtonItem, Focusable, GamepadButton } from "@decky/ui";
 import { definePlugin } from "@decky/api";
 import { FaHeadphones } from "react-icons/fa";
 
@@ -29,6 +29,12 @@ function Content() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState>(EMPTY_PLAYER_STATE);
 
+  const scrollToTopOnUp = (event: CustomEvent<{ button: number; is_repeat?: boolean }>) => {
+    if (event.detail.button === GamepadButton.DIR_UP && event.detail.is_repeat) {
+      contentTopRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+    }
+  };
+
   useEffect(() => {
     (async () => {
       const cfg = await getConfig();
@@ -51,6 +57,10 @@ function Content() {
   }, []);
 
   return (
+    <Focusable
+      onGamepadDirection={scrollToTopOnUp}
+      style={{ display: "contents" }}
+    >
     <div ref={contentTopRef}>
       {playerState.nowPlaying && (
         <PlayerView
@@ -107,17 +117,8 @@ function Content() {
         </PanelSection>
       )}
 
-      <PanelSection title="Scroll to Top">
-        <PanelSectionRow>
-          <ButtonItem
-            layout="below"
-            onClick={() => contentTopRef.current?.scrollIntoView({ block: "start", behavior: "auto" })}
-          >
-            {"Scroll to Top"}
-          </ButtonItem>
-        </PanelSectionRow>
-      </PanelSection>
     </div>
+    </Focusable>
   );
 }
 
