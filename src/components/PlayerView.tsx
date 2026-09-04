@@ -20,16 +20,7 @@ import {
 import { FaDownload } from 'react-icons/fa';
 import { CoverImage } from './CoverImage';
 import { TwoColumnButtonRow } from './TwoColumnButtonRow';
-
-function formatTime(seconds: number): string {
-  if (!seconds || seconds < 0) seconds = 0;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const mm = m.toString().padStart(h > 0 ? 2 : 1, '0');
-  const ss = s.toString().padStart(2, '0');
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
+import { clampProgress, formatTime } from '../utils/time';
 
 const SPEEDS = [0.75, 1, 1.1, 1.2, 1.25, 1.5, 1.75, 2];
 
@@ -112,7 +103,7 @@ export function PlayerView({ state, onStopped }: { state: PlayerState; onStopped
             <div>{state.chapterTitle}</div>
           </PanelSectionRow>
           <PanelSectionRow>
-            <ProgressBar nProgress={Math.min(100, Math.max(0, chapterProgress * 100))} />
+            <ProgressBar nProgress={clampProgress(chapterProgress) * 100} />
           </PanelSectionRow>
           <PanelSectionRow>
             <div>
@@ -122,7 +113,7 @@ export function PlayerView({ state, onStopped }: { state: PlayerState; onStopped
         </>
       )}
       <PanelSectionRow>
-        <ProgressBar nProgress={Math.min(100, Math.max(0, progress * 100))} />
+        <ProgressBar nProgress={clampProgress(progress) * 100} />
       </PanelSectionRow>
       <PanelSectionRow>
         <div>

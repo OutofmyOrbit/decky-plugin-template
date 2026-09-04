@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react';
-import { PanelSection, PanelSectionRow, ButtonItem, Focusable, TextField } from '@decky/ui';
+import { PanelSection, PanelSectionRow, ButtonItem, TextField } from '@decky/ui';
 import { getLibraries, getLibraryItems, Library, LibraryItemSummary } from '../api';
-import { FaDownload } from 'react-icons/fa';
-import { CoverImage } from './CoverImage';
 import { SeriesView } from './SeriesView';
 import { TwoColumnButtonRow } from './TwoColumnButtonRow';
-
-const PAGE_SIZE = 10;
-
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return '';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
+import { LibraryItemRow } from './LibraryItemRow';
+import {
+  getAuthors,
+  getOfflineItems,
+  getPageCount,
+  getPageItems,
+  getRecentItems,
+} from '../utils/library';
 
 export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) => void }) {
   const [libraries, setLibraries] = useState<Library[]>([]);
@@ -61,22 +58,18 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
     };
   }, [selectedLibrary, search]);
 
-  const authors = [...new Set(items.map((item) => item.author).filter(Boolean))].sort(
-    (left, right) => left.localeCompare(right),
-  );
-  const recentItems = items.filter((item) => item.currentTime > 0 && !item.isFinished);
-  const offlineItems = items.filter((item) => item.offline && !recentItems.includes(item));
-  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const authors = getAuthors(items);
+  const recentItems = getRecentItems(items);
+  const offlineItems = getOfflineItems(items, recentItems);
+  const pageCount = getPageCount(items.length);
+  const pageItems = getPageItems(items, page);
 
   useEffect(() => {
     setPage(0);
   }, [search, selectedLibrary, items.length]);
 
   const renderItem = (item: LibraryItemSummary) => (
-    <PanelSectionRow key={item.id}>
-      <FocusableItem item={item} onSelectItem={onSelectItem} />
-    </PanelSectionRow>
+    <LibraryItemRow key={item.id} item={item} onSelectItem={onSelectItem} />
   );
 
   if (!selectedLibrary) {
@@ -241,31 +234,5 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
         )}
       </PanelSection>
     </>
-  );
-}
-
-function FocusableItem({
-  item,
-  onSelectItem,
-}: {
-  item: LibraryItemSummary;
-  onSelectItem: (itemId: string) => void;
-}) {
-  return (
-    <ButtonItem layout="below" onClick={() => onSelectItem(item.id)}>
-      <Focusable style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <CoverImage itemId={item.id} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>{item.title}</span>
-            {item.offline && <FaDownload aria-label="Downloaded" />}
-          </div>
-          <div>
-            {item.author}
-            {item.duration ? ` · ${formatDuration(item.duration)}` : ''}
-          </div>
-        </div>
-      </Focusable>
-    </ButtonItem>
   );
 }

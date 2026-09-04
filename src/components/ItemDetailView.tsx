@@ -14,19 +14,10 @@ import {
   DownloadStatus,
 } from '../api';
 import { CoverImage } from './CoverImage';
+import { formatTime } from '../utils/time';
 
 type PreferredButtonItemProps = ComponentProps<typeof ButtonItem> & { preferredFocus?: boolean };
 const PreferredButtonItem = ButtonItem as ComponentType<PreferredButtonItemProps>;
-
-function formatTime(seconds: number): string {
-  if (!seconds || seconds < 0) seconds = 0;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const mm = m.toString().padStart(h > 0 ? 2 : 1, '0');
-  const ss = s.toString().padStart(2, '0');
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
 
 export function ItemDetailView({
   itemId,
@@ -133,11 +124,6 @@ export function ItemDetailView({
         </PanelSectionRow>
       </PanelSection>
       <PanelSection title={details?.title ?? 'Loading...'}>
-        <PanelSectionRow>
-          <ButtonItem layout="below" onClick={onBack}>
-            {'< Back'}
-          </ButtonItem>
-        </PanelSectionRow>
         {details?.author && (
           <PanelSectionRow>
             <div>{details.author}</div>
@@ -215,6 +201,11 @@ export function ItemDetailView({
             <div>Download failed: {download.error}</div>
           </PanelSectionRow>
         )}
+        <PanelSectionRow>
+          <ButtonItem layout="below" onClick={onBack}>
+            {'< Back'}
+          </ButtonItem>
+        </PanelSectionRow>
       </PanelSection>
     </>
   );
