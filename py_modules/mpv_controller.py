@@ -8,6 +8,7 @@ bindings needed). A working `mpv` is located in this order: a bundled binary
 at `<plugin_dir>/bin/mpv` (if the user placed one there), a system `mpv`
 binary, or the mpv Flatpak on Flathub as a last resort.
 """
+
 import asyncio
 import json
 import os
@@ -64,7 +65,9 @@ class MPVController:
         try:
             result = subprocess.run(
                 ["flatpak", "info", MPV_FLATPAK_ID],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
             )
             return result.returncode == 0
         except Exception:
@@ -80,7 +83,13 @@ class MPVController:
         if MPVController._flatpak_mpv_installed():
             # Grant this run access to our runtime dir (for the IPC socket) and force
             # pulseaudio access in case the sandbox's own permission got overridden.
-            return ["flatpak", "run", f"--filesystem={self.runtime_dir}", "--socket=pulseaudio", MPV_FLATPAK_ID]
+            return [
+                "flatpak",
+                "run",
+                f"--filesystem={self.runtime_dir}",
+                "--socket=pulseaudio",
+                MPV_FLATPAK_ID,
+            ]
         return None
 
     @staticmethod
@@ -90,12 +99,32 @@ class MPVController:
             return False, "Flatpak is not available on this system"
         try:
             subprocess.run(
-                ["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", MPV_FLATPAK_REMOTE_URL],
-                check=True, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                [
+                    "flatpak",
+                    "remote-add",
+                    "--user",
+                    "--if-not-exists",
+                    "flathub",
+                    MPV_FLATPAK_REMOTE_URL,
+                ],
+                check=True,
+                timeout=30,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
             result = subprocess.run(
-                ["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", MPV_FLATPAK_ID],
-                capture_output=True, text=True, timeout=600,
+                [
+                    "flatpak",
+                    "install",
+                    "--user",
+                    "-y",
+                    "--noninteractive",
+                    "flathub",
+                    MPV_FLATPAK_ID,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=600,
             )
             if result.returncode != 0:
                 return False, (result.stderr or result.stdout or "flatpak install failed").strip()
@@ -172,7 +201,7 @@ class MPVController:
         if not self.log_path or not os.path.exists(self.log_path):
             return ""
         try:
-            with open(self.log_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(self.log_path, encoding="utf-8", errors="replace") as f:
                 return "".join(f.readlines()[-lines:]).strip()
         except OSError:
             return ""
@@ -226,14 +255,18 @@ class MPVController:
 
         idx, local = self._locate(start_time or 0.0)
 
-        args = mpv_cmd + [
-            "--no-video",
-            "--idle=yes",
-            "--quiet",
-            "--no-terminal",
-            f"--input-ipc-server={self.ipc_path}",
-            f"--start={local:.3f}",
-        ] + [t["url"] for t in tracks]
+        args = (
+            mpv_cmd
+            + [
+                "--no-video",
+                "--idle=yes",
+                "--quiet",
+                "--no-terminal",
+                f"--input-ipc-server={self.ipc_path}",
+                f"--start={local:.3f}",
+            ]
+            + [t["url"] for t in tracks]
+        )
 
         # Flatpak (and mpv itself) need a valid runtime dir to reach the desktop's
         # audio/display sockets; fall back to the standard paths if they're missing
@@ -249,8 +282,11 @@ class MPVController:
         log_file = open(self.log_path, "w", encoding="utf-8")
         try:
             self.proc = subprocess.Popen(
-                args, stdout=log_file, stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL, env=env,
+                args,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                env=env,
             )
         finally:
             log_file.close()

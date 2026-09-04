@@ -7,7 +7,14 @@
     "build": "rollup -c && node scripts/build-zip.mjs",
     "watch": "rollup -c -w",
     "dev:deck": "powershell -ExecutionPolicy Bypass -File scripts/watch-deploy.ps1",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" package.json plugin.json tsconfig.json .prettierrc.json README.md",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" package.json plugin.json tsconfig.json .prettierrc.json README.md",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "format:py": "node scripts/run-ruff.mjs format main.py py_modules",
+    "format:py:check": "node scripts/run-ruff.mjs format --check main.py py_modules",
+    "lint:py": "node scripts/run-ruff.mjs check main.py py_modules",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run format:py:check && npm run lint:py"
   },
   "repository": {
     "type": "git",
@@ -29,12 +36,18 @@
   "devDependencies": {
     "@decky/rollup": "^1.0.2",
     "@decky/ui": "^4.11.0",
+    "@eslint/js": "^9.35.0",
     "@types/react": "19.1.1",
     "@types/react-dom": "19.1.1",
     "@types/webpack": "^5.28.5",
     "archiver": "^7.0.1",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^6.1.1",
+    "prettier": "3.6.2",
     "rollup": "^4.53.3",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "typescript-eslint": "^8.42.0"
   },
   "dependencies": {
     "@decky/api": "^1.1.3",

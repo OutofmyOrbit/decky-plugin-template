@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   PanelSection,
   PanelSectionRow,
@@ -6,13 +6,13 @@ import {
   TextField,
   ToggleField,
   Field,
-} from "@decky/ui";
-import { getConfig, login } from "../api";
+} from '@decky/ui';
+import { getConfig, login } from '../api';
 
 export function LoginView({ onLoggedIn }: { onLoggedIn: (username: string) => void }) {
-  const [serverUrl, setServerUrl] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [serverUrl, setServerUrl] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export function LoginView({ onLoggedIn }: { onLoggedIn: (username: string) => vo
       if (result.success) {
         onLoggedIn(result.username ?? username);
       } else {
-        setError(result.error ?? "Login failed");
+        setError(result.error ?? 'Login failed');
       }
     } catch (e) {
       setError(String(e));
@@ -86,7 +86,7 @@ export function LoginView({ onLoggedIn }: { onLoggedIn: (username: string) => vo
       )}
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={!canSubmit} onClick={onSubmit}>
-          {busy ? "Connecting..." : "Log In"}
+          {busy ? 'Connecting...' : 'Log In'}
         </ButtonItem>
       </PanelSectionRow>
     </PanelSection>

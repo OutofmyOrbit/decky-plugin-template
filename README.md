@@ -11,35 +11,35 @@ you stop playback, so it shows up correctly in other Audiobookshelf clients.
 
 ## Requirements
 
-* A running Audiobookshelf server you can log into (server URL + username/password).
-* `mpv` installed on the device running the plugin. If it's missing, the plugin will offer to install it for you
+- A running Audiobookshelf server you can log into (server URL + username/password).
+- `mpv` installed on the device running the plugin. If it's missing, the plugin will offer to install it for you
   (via Flatpak/Flathub) the first time you try to play something.
 
 ## Features
 
-* Login screen (server URL, username, password, "Remember me") — the API token (and, if remembered, your
+- Login screen (server URL, username, password, "Remember me") — the API token (and, if remembered, your
   credentials) are stored in the plugin's settings dir so the plugin logs itself back in automatically, even if the
   saved token later goes stale (server restart, password change, etc).
-* Browse libraries → items (with search) → item details.
-* Play / resume (resumes from your last Audiobookshelf progress), with cover art shown in the mini-player.
-* Persistent mini-player in the QAM: cover art, play/pause, ±30s seek, prev/next chapter, chapter dropdown, playback
+- Browse libraries → items (with search) → item details.
+- Play / resume (resumes from your last Audiobookshelf progress), with cover art shown in the mini-player.
+- Persistent mini-player in the QAM: cover art, play/pause, ±30s seek, prev/next chapter, chapter dropdown, playback
   speed.
-* Periodic progress sync to Audiobookshelf (every 20s and on stop) via the official session sync/close API.
-* Automatic `mpv` install prompt (via Flatpak/Flathub) if no `mpv` binary is found on the system.
-* Offline downloads: download an item's audio (and cover) to local storage for offline playback; downloaded items
+- Periodic progress sync to Audiobookshelf (every 20s and on stop) via the official session sync/close API.
+- Automatic `mpv` install prompt (via Flatpak/Flathub) if no `mpv` binary is found on the system.
+- Offline downloads: download an item's audio (and cover) to local storage for offline playback; downloaded items
   are played from disk automatically (no re-streaming) and keep syncing progress when a connection is available.
 
 ## Known limitations (MVP)
 
-* One active playback session at a time (starting a new item stops the previous one).
-* `timeListened` sent to the server is approximated from wall-clock time between syncs while playing, not exact
+- One active playback session at a time (starting a new item stops the previous one).
+- `timeListened` sent to the server is approximated from wall-clock time between syncs while playing, not exact
   decoded audio time.
-* No support yet for podcasts/episodes or series browsing — books only.
-* Credentials are stored in plaintext in the plugin's settings directory (same trust boundary as the existing
+- No support yet for podcasts/episodes or series browsing — books only.
+- Credentials are stored in plaintext in the plugin's settings directory (same trust boundary as the existing
   auth token) to support "remember me" / automatic re-login. This is only readable by the user/root account the
   Decky plugin backend runs as, not exposed to other apps or the network. Uncheck "Remember me" at login if you'd
   rather not persist your password.
-* Offline downloads are stored under the plugin's runtime data dir; there's no disk-space/quota management beyond
+- Offline downloads are stored under the plugin's runtime data dir; there's no disk-space/quota management beyond
   manually deleting individual downloads from the item detail screen.
 
 ## mpv installation
@@ -71,6 +71,28 @@ playback control shells out to the `mpv` binary (or Flatpak) via its IPC socket.
 npm install
 npm run build     # bundles src/ -> dist/index.js, then packages out/<plugin name>.zip
 ```
+
+### Code quality
+
+Frontend formatting and linting use the locally installed Prettier and ESLint versions. Python formatting and linting
+use Ruff; Ruff is a development tool only and is not included in the plugin runtime. Install it in the local Python
+environment before running the full check:
+
+```bash
+python -m pip install ruff
+npm run format       # format TypeScript and project metadata
+npm run format:py    # format Python
+npm run check        # formatting, linting, and TypeScript checks
+```
+
+Use `format:check`, `format:py:check`, `lint`, `lint:py`, or `typecheck` when working on one part of the project.
+Keep generated files under `dist/` and `out/` out of source changes. The backend intentionally remains standard
+library-only so the plugin can run on Deck without installing pip packages.
+
+Future quality work should add focused backend tests for API responses, downloader state transitions, and playback
+position helpers, followed by frontend tests for login and screen transitions. Larger behavior changes such as
+reworking polling, credential storage, or the synchronous HTTP boundary should be handled separately from formatting
+and lint cleanup.
 
 `npm run build` produces `out/Audiobookshelf.zip`, containing exactly the files Decky Loader needs
 (`plugin.json`, `package.json`, `main.py`, `py_modules/`, `dist/`) nested in a single top-level folder. Copy that zip
@@ -121,16 +143,16 @@ Deploying to a real Deck for every change is slow. Two better options while iter
 
 ### Project layout
 
-* `main.py` — Decky `Plugin` class: config persistence, auto re-login, all frontend-callable methods, download
+- `main.py` — Decky `Plugin` class: config persistence, auto re-login, all frontend-callable methods, download
   orchestration, and the progress-sync loop.
-* `py_modules/abs_client.py` — Minimal Audiobookshelf HTTP API client (stdlib only).
-* `py_modules/mpv_controller.py` — Spawns and drives headless `mpv` (system binary or Flatpak) over its JSON IPC
+- `py_modules/abs_client.py` — Minimal Audiobookshelf HTTP API client (stdlib only).
+- `py_modules/mpv_controller.py` — Spawns and drives headless `mpv` (system binary or Flatpak) over its JSON IPC
   socket; also handles Flatpak-based mpv installation.
-* `py_modules/downloader.py` — Background-thread download manager for offline playback.
-* `src/api.ts` — Typed `callable()` wrappers around the backend methods.
-* `src/components/` — `LoginView`, `LibraryView`, `ItemDetailView`, `PlayerView` (mini-player).
-* `src/index.tsx` — Top-level QAM panel: screen routing + persistent player polling.
-* `dev/local_test.py` — Local backend test harness (see "Testing without a Steam Deck" above).
+- `py_modules/downloader.py` — Background-thread download manager for offline playback.
+- `src/api.ts` — Typed `callable()` wrappers around the backend methods.
+- `src/components/` — `LoginView`, `LibraryView`, `ItemDetailView`, `PlayerView` (mini-player).
+- `src/index.tsx` — Top-level QAM panel: screen routing + persistent player polling.
+- `dev/local_test.py` — Local backend test harness (see "Testing without a Steam Deck" above).
 
 ## License
 

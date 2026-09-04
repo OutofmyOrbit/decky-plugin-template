@@ -6,11 +6,12 @@ that no extra pip dependencies need to be installed on the Steam Deck.
 
 API reference: https://api.audiobookshelf.org/
 """
-import json
+
 import base64
-import urllib.request
-import urllib.parse
+import json
 import urllib.error
+import urllib.parse
+import urllib.request
 
 
 class ABSError(Exception):
@@ -34,8 +35,14 @@ class ABSClient:
     def configured(self) -> bool:
         return bool(self.server_url and self.token)
 
-    def _request(self, method: str, path: str, query: dict | None = None,
-                 body: dict | None = None, timeout: float = 15.0) -> dict:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        query: dict | None = None,
+        body: dict | None = None,
+        timeout: float = 15.0,
+    ) -> dict:
         if not self.server_url:
             raise ABSError("Server URL is not configured")
 
@@ -75,10 +82,14 @@ class ABSClient:
 
     def login(self, username: str, password: str) -> dict:
         """Returns the raw /login response (contains 'user': {'token': ...})."""
-        return self._request("POST", "/login", body={
-            "username": username,
-            "password": password,
-        })
+        return self._request(
+            "POST",
+            "/login",
+            body={
+                "username": username,
+                "password": password,
+            },
+        )
 
     def get_me(self) -> dict:
         return self._request("GET", "/api/me")
@@ -94,30 +105,48 @@ class ABSClient:
         result = self._request("GET", "/api/libraries")
         return result.get("libraries", [])
 
-    def get_library_items(self, library_id: str, search: str | None = None,
-                           limit: int = 50, page: int = 0, sort: str | None = None) -> dict:
+    def get_library_items(
+        self,
+        library_id: str,
+        search: str | None = None,
+        limit: int = 50,
+        page: int = 0,
+        sort: str | None = None,
+    ) -> dict:
         if search:
-            result = self._request("GET", f"/api/libraries/{library_id}/search", query={
-                "q": search,
-                "limit": limit,
-            })
+            result = self._request(
+                "GET",
+                f"/api/libraries/{library_id}/search",
+                query={
+                    "q": search,
+                    "limit": limit,
+                },
+            )
             # /search groups results by type; flatten "book" matches to look like /items results
             books = result.get("book", []) or []
             items = [b.get("libraryItem", b) for b in books]
             return {"results": items, "total": len(items)}
-        return self._request("GET", f"/api/libraries/{library_id}/items", query={
-            "limit": limit,
-            "page": page,
-            "sort": sort,
-        })
+        return self._request(
+            "GET",
+            f"/api/libraries/{library_id}/items",
+            query={
+                "limit": limit,
+                "page": page,
+                "sort": sort,
+            },
+        )
 
     # ---- Items ----
 
     def get_item(self, item_id: str) -> dict:
-        return self._request("GET", f"/api/items/{item_id}", query={
-            "expanded": 1,
-            "include": "progress",
-        })
+        return self._request(
+            "GET",
+            f"/api/items/{item_id}",
+            query={
+                "expanded": 1,
+                "include": "progress",
+            },
+        )
 
     def cover_url(self, item_id: str) -> str:
         token_q = urllib.parse.quote(self.token)
@@ -144,29 +173,46 @@ class ABSClient:
         path = f"/api/items/{item_id}/play"
         if episode_id:
             path += f"/{episode_id}"
-        return self._request("POST", path, body={
-            "deviceInfo": {
-                "clientName": "Decky Audiobookshelf",
-                "clientVersion": "0.0.1",
+        return self._request(
+            "POST",
+            path,
+            body={
+                "deviceInfo": {
+                    "clientName": "Decky Audiobookshelf",
+                    "clientVersion": "0.0.1",
+                },
+                "forceDirectPlay": True,
+                "supportedMimeTypes": [
+                    "audio/flac",
+                    "audio/mpeg",
+                    "audio/mp4",
+                    "audio/ogg",
+                    "audio/aac",
+                    "audio/x-m4a",
+                ],
+                "mediaPlayer": "mpv",
             },
-            "forceDirectPlay": True,
-            "supportedMimeTypes": [
-                "audio/flac", "audio/mpeg", "audio/mp4", "audio/ogg", "audio/aac", "audio/x-m4a"
-            ],
-            "mediaPlayer": "mpv",
-        })
+        )
 
     def sync_session(self, session_id: str, current_time: float, time_listened: float):
-        return self._request("POST", f"/api/session/{session_id}/sync", body={
-            "currentTime": current_time,
-            "timeListened": time_listened,
-        })
+        return self._request(
+            "POST",
+            f"/api/session/{session_id}/sync",
+            body={
+                "currentTime": current_time,
+                "timeListened": time_listened,
+            },
+        )
 
     def close_session(self, session_id: str, current_time: float, time_listened: float):
-        return self._request("POST", f"/api/session/{session_id}/close", body={
-            "currentTime": current_time,
-            "timeListened": time_listened,
-        })
+        return self._request(
+            "POST",
+            f"/api/session/{session_id}/close",
+            body={
+                "currentTime": current_time,
+                "timeListened": time_listened,
+            },
+        )
 
     def media_url(self, content_url: str) -> str:
         """Turns a relative contentUrl (e.g. '/s/item/li_xxx/file.mp3') into an

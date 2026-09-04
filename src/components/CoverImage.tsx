@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { getCover } from "../api";
+import { useEffect, useState } from 'react';
+import { getCover } from '../api';
 
 const coverCache = new Map<string, string | null>();
 
@@ -15,18 +15,20 @@ export function CoverImage({ itemId, size = 48 }: { itemId: string; size?: numbe
       return;
     }
     setLoaded(false);
-    getCover(itemId).then((result) => {
-      if (cancelled) return;
-      const dataUrl = result.success ? result.dataUrl ?? null : null;
-      coverCache.set(itemId, dataUrl);
-      setSource(dataUrl);
-      setLoaded(true);
-    }).catch(() => {
-      if (!cancelled) {
-        coverCache.set(itemId, null);
+    getCover(itemId)
+      .then((result) => {
+        if (cancelled) return;
+        const dataUrl = result.success ? (result.dataUrl ?? null) : null;
+        coverCache.set(itemId, dataUrl);
+        setSource(dataUrl);
         setLoaded(true);
-      }
-    });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          coverCache.set(itemId, null);
+          setLoaded(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -35,13 +37,13 @@ export function CoverImage({ itemId, size = 48 }: { itemId: string; size?: numbe
   const style = {
     width: `${size}px`,
     height: `${size}px`,
-    borderRadius: "4px",
+    borderRadius: '4px',
     flexShrink: 0,
-    objectFit: "cover" as const,
+    objectFit: 'cover' as const,
   };
 
   if (!loaded || !source) {
-    return <div aria-hidden="true" style={{ ...style, background: "#3f4b5a" }} />;
+    return <div aria-hidden="true" style={{ ...style, background: '#3f4b5a' }} />;
   }
   return <img src={source} alt="" style={style} onError={() => setSource(null)} />;
 }

@@ -7,6 +7,7 @@ connection to the Audiobookshelf server, and so already-downloaded books
 aren't re-streamed. Downloads run on a plain background thread (not asyncio)
 since they're blocking, chunked HTTP reads via urllib.
 """
+
 import json
 import os
 import shutil
@@ -41,14 +42,16 @@ class Downloader:
 
     def get_status(self, item_id: str) -> dict:
         with self._lock:
-            return dict(self._status.get(item_id, {"state": "none", "progress": 0.0, "error": None}))
+            return dict(
+                self._status.get(item_id, {"state": "none", "progress": 0.0, "error": None})
+            )
 
     def get_meta(self, item_id: str) -> dict | None:
         path = self._meta_path(item_id)
         if not os.path.exists(path):
             return None
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return None
@@ -63,11 +66,13 @@ class Downloader:
         for item_id in item_ids:
             meta = self.get_meta(item_id)
             if meta:
-                result.append({"itemId": item_id, "title": meta.get("title"), "author": meta.get("author")})
+                result.append(
+                    {"itemId": item_id, "title": meta.get("title"), "author": meta.get("author")}
+                )
         return result
 
     def local_tracks(self, item_id: str) -> list | None:
-        """Returns [{url (local path), startOffset, duration}, ...] or None if not fully downloaded."""
+        """Return local track data, or None if the item is not fully downloaded."""
         meta = self.get_meta(item_id)
         if not meta:
             return None
@@ -88,8 +93,9 @@ class Downloader:
 
     # ------------------------------------------------------------- actions
 
-    def start_download(self, item_id: str, title: str, author: str, cover_url: str,
-                        tracks: list, chapters: list):
+    def start_download(
+        self, item_id: str, title: str, author: str, cover_url: str, tracks: list, chapters: list
+    ):
         with self._lock:
             existing = self._status.get(item_id)
             if existing and existing.get("state") == "downloading":
@@ -137,14 +143,20 @@ class Downloader:
                 ext = os.path.splitext(t["url"].split("?")[0])[1] or ".audio"
                 filename = f"track{i:03d}{ext}"
                 self._download_file(
-                    t["url"], os.path.join(tmp_dir, filename), cancel_event,
-                    base_progress=i / n, span=1 / n, item_id=item_id,
+                    t["url"],
+                    os.path.join(tmp_dir, filename),
+                    cancel_event,
+                    base_progress=i / n,
+                    span=1 / n,
+                    item_id=item_id,
                 )
-                track_meta.append({
-                    "file": filename,
-                    "startOffset": t.get("startOffset", 0),
-                    "duration": t.get("duration", 0),
-                })
+                track_meta.append(
+                    {
+                        "file": filename,
+                        "startOffset": t.get("startOffset", 0),
+                        "duration": t.get("duration", 0),
+                    }
+                )
 
             cover_file = None
             if cover_url:
@@ -184,8 +196,15 @@ class Downloader:
             with self._lock:
                 self._cancel_events.pop(item_id, None)
 
-    def _download_file(self, url: str, dest: str, cancel_event: threading.Event,
-                        base_progress: float = 0.0, span: float = 1.0, item_id: str | None = None):
+    def _download_file(
+        self,
+        url: str,
+        dest: str,
+        cancel_event: threading.Event,
+        base_progress: float = 0.0,
+        span: float = 1.0,
+        item_id: str | None = None,
+    ):
         with urllib.request.urlopen(url, timeout=30) as resp, open(dest, "wb") as out:
             total = resp.headers.get("Content-Length")
             total = int(total) if total else None

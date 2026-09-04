@@ -1,4 +1,4 @@
-import { callable } from "@decky/api";
+import { callable } from '@decky/api';
 
 export interface Library {
   id: string;
@@ -72,7 +72,7 @@ export interface BasicResult {
 }
 
 export interface DownloadStatus {
-  state: "none" | "downloading" | "done" | "error";
+  state: 'none' | 'downloading' | 'done' | 'error';
   progress: number;
   error?: string | null;
 }
@@ -88,62 +88,48 @@ export interface MpvStatus {
 }
 
 // ---- config / auth ----
-export const getConfig = callable<[], ConfigResult>("get_config");
+export const getConfig = callable<[], ConfigResult>('get_config');
 export const login = callable<
   [server_url: string, username: string, password: string, remember: boolean],
   BasicResult & { username?: string }
->("login");
-export const logout = callable<[], BasicResult>("logout");
+>('login');
+export const logout = callable<[], BasicResult>('logout');
 export const checkConnection = callable<[], BasicResult & { username?: string }>(
-  "check_connection"
+  'check_connection',
 );
 
 // ---- library browsing ----
-export const getLibraries = callable<
-  [],
-  BasicResult & { libraries: Library[] }
->("get_libraries");
+export const getLibraries = callable<[], BasicResult & { libraries: Library[] }>('get_libraries');
 export const getLibraryItems = callable<
   [library_id: string, search: string],
   BasicResult & { items: LibraryItemSummary[] }
->("get_library_items");
-export const getItemDetails = callable<[item_id: string], ItemDetails>(
-  "get_item_details"
+>('get_library_items');
+export const getItemDetails = callable<[item_id: string], ItemDetails>('get_item_details');
+export const getCover = callable<[item_id: string], BasicResult & { dataUrl?: string }>(
+  'get_cover',
 );
-export const getCover = callable<
-  [item_id: string],
-  BasicResult & { dataUrl?: string }
->("get_cover");
 
 // ---- offline downloads ----
-export const downloadItem = callable<[item_id: string], BasicResult>("download_item");
-export const cancelDownload = callable<[item_id: string], BasicResult>("cancel_download");
-export const deleteDownload = callable<[item_id: string], BasicResult>("delete_download");
-export const getDownloadStatus = callable<[item_id: string], DownloadStatus>(
-  "get_download_status"
-);
+export const downloadItem = callable<[item_id: string], BasicResult>('download_item');
+export const cancelDownload = callable<[item_id: string], BasicResult>('cancel_download');
+export const deleteDownload = callable<[item_id: string], BasicResult>('delete_download');
+export const getDownloadStatus = callable<[item_id: string], DownloadStatus>('get_download_status');
 export const listDownloads = callable<[], BasicResult & { items: DownloadedItem[] }>(
-  "list_downloads"
+  'list_downloads',
 );
 
 // ---- mpv ----
-export const getMpvStatus = callable<[], MpvStatus>("get_mpv_status");
-export const installMpv = callable<[], BasicResult>("install_mpv");
+export const getMpvStatus = callable<[], MpvStatus>('get_mpv_status');
+export const installMpv = callable<[], BasicResult>('install_mpv');
 
 // ---- playback ----
-export const playItem = callable<[item_id: string], BasicResult>("play_item");
-export const togglePause = callable<[], BasicResult>("toggle_pause");
-export const stopPlayback = callable<[], BasicResult>("stop_playback");
-export const seekRelative = callable<[seconds: number], BasicResult>(
-  "seek_relative"
-);
-export const seekTo = callable<[seconds: number], BasicResult>("seek_to");
-export const nextChapter = callable<[], BasicResult>("next_chapter");
-export const prevChapter = callable<[], BasicResult>("prev_chapter");
-export const setChapter = callable<[chapter_id: number | string], BasicResult>(
-  "set_chapter"
-);
-export const setPlaybackSpeed = callable<[speed: number], BasicResult>(
-  "set_playback_speed"
-);
-export const getPlayerState = callable<[], PlayerState>("get_player_state");
+export const playItem = callable<[item_id: string], BasicResult>('play_item');
+export const togglePause = callable<[], BasicResult>('toggle_pause');
+export const stopPlayback = callable<[], BasicResult>('stop_playback');
+export const seekRelative = callable<[seconds: number], BasicResult>('seek_relative');
+export const seekTo = callable<[seconds: number], BasicResult>('seek_to');
+export const nextChapter = callable<[], BasicResult>('next_chapter');
+export const prevChapter = callable<[], BasicResult>('prev_chapter');
+export const setChapter = callable<[chapter_id: number | string], BasicResult>('set_chapter');
+export const setPlaybackSpeed = callable<[speed: number], BasicResult>('set_playback_speed');
+export const getPlayerState = callable<[], PlayerState>('get_player_state');

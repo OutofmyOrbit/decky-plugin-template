@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { PanelSection, PanelSectionRow, ButtonItem, Focusable } from "@decky/ui";
-import { LibraryItemSummary } from "../api";
-import { CoverImage } from "./CoverImage";
-import { FaDownload } from "react-icons/fa";
+import { useState } from 'react';
+import { PanelSection, PanelSectionRow, ButtonItem, Focusable } from '@decky/ui';
+import { LibraryItemSummary } from '../api';
+import { CoverImage } from './CoverImage';
+import { FaDownload } from 'react-icons/fa';
 
 export function SeriesView({
   items,
@@ -15,23 +15,24 @@ export function SeriesView({
 }) {
   const seriesGroups = new Map<string, LibraryItemSummary[]>();
   for (const item of items) {
-    const name = item.series.trim() || "Standalone books";
+    const name = item.series.trim() || 'Standalone books';
     const group = seriesGroups.get(name) ?? [];
     group.push(item);
     seriesGroups.set(name, group);
   }
 
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
-  const selectedItems = selectedSeries ? seriesGroups.get(selectedSeries) ?? [] : [];
+  const selectedItems = selectedSeries ? (seriesGroups.get(selectedSeries) ?? []) : [];
 
   const renderItem = (item: LibraryItemSummary) => (
     <PanelSectionRow key={item.id}>
       <ButtonItem layout="below" onClick={() => onSelectItem(item.id)}>
-        <Focusable style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <Focusable style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <CoverImage itemId={item.id} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span>{item.title}</span>{item.offline && <FaDownload aria-label="Downloaded" />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>{item.title}</span>
+              {item.offline && <FaDownload aria-label="Downloaded" />}
             </div>
             <div>{item.author}</div>
           </div>
@@ -53,7 +54,7 @@ export function SeriesView({
       <PanelSection title={selectedSeries}>
         <PanelSectionRow>
           <ButtonItem layout="below" onClick={() => setSelectedSeries(null)}>
-            {"< Back to series"}
+            {'< Back to series'}
           </ButtonItem>
         </PanelSectionRow>
         {sortedSelectedItems.map(renderItem)}
@@ -61,12 +62,14 @@ export function SeriesView({
     );
   }
 
-  const seriesEntries = [...seriesGroups.entries()].sort(([left], [right]) => left.localeCompare(right));
+  const seriesEntries = [...seriesGroups.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
   return (
     <PanelSection title="Series">
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={onBack}>
-          {"< Back to library"}
+          {'< Back to library'}
         </ButtonItem>
       </PanelSectionRow>
       {seriesEntries.map(([name, seriesItems]) => (

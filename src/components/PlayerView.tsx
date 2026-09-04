@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 import {
   PanelSection,
   PanelSectionRow,
@@ -6,7 +6,7 @@ import {
   Dropdown,
   ProgressBar,
   Focusable,
-} from "@decky/ui";
+} from '@decky/ui';
 import {
   PlayerState,
   togglePause,
@@ -16,37 +16,39 @@ import {
   prevChapter,
   setChapter,
   setPlaybackSpeed,
-} from "../api";
-import { FaDownload } from "react-icons/fa";
-import { CoverImage } from "./CoverImage";
-import { TwoColumnButtonRow } from "./TwoColumnButtonRow";
+} from '../api';
+import { FaDownload } from 'react-icons/fa';
+import { CoverImage } from './CoverImage';
+import { TwoColumnButtonRow } from './TwoColumnButtonRow';
 
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 0) seconds = 0;
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
-  const mm = m.toString().padStart(h > 0 ? 2 : 1, "0");
-  const ss = s.toString().padStart(2, "0");
+  const mm = m.toString().padStart(h > 0 ? 2 : 1, '0');
+  const ss = s.toString().padStart(2, '0');
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 const SPEEDS = [0.75, 1, 1.1, 1.2, 1.25, 1.5, 1.75, 2];
 
-export function PlayerView({
-  state,
-  onStopped,
-}: {
-  state: PlayerState;
-  onStopped: () => void;
-}) {
+export function PlayerView({ state, onStopped }: { state: PlayerState; onStopped: () => void }) {
   const [busy, setBusy] = useState(false);
   const [displayTime, setDisplayTime] = useState(state.currentTime);
-  const timeAnchor = useRef({ time: state.currentTime, receivedAt: Date.now(), playing: state.playing });
+  const timeAnchor = useRef({
+    time: state.currentTime,
+    receivedAt: Date.now(),
+    playing: state.playing,
+  });
   const playerHeader = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    timeAnchor.current = { time: state.currentTime, receivedAt: Date.now(), playing: state.playing };
+    timeAnchor.current = {
+      time: state.currentTime,
+      receivedAt: Date.now(),
+      playing: state.playing,
+    };
     setDisplayTime(state.currentTime);
   }, [state.currentTime, state.playing]);
 
@@ -66,11 +68,10 @@ export function PlayerView({
   const chapter = state.chapterIndex >= 0 ? state.chapters[state.chapterIndex] : null;
   const chapterEnd = chapter?.end || state.duration;
   const chapterDuration = chapter ? chapterEnd - chapter.start : 0;
-  const chapterProgress = chapterDuration > 0
-    ? (displayTime - chapter!.start) / chapterDuration
-    : 0;
+  const chapterProgress =
+    chapterDuration > 0 ? (displayTime - chapter!.start) / chapterDuration : 0;
 
-  const wrap = (fn: () => Promise<any>) => async () => {
+  const wrap = (fn: () => Promise<unknown>) => async () => {
     setBusy(true);
     try {
       await fn();
@@ -79,19 +80,27 @@ export function PlayerView({
     }
   };
 
-  const speedIndex = Math.max(0, SPEEDS.findIndex((s) => Math.abs(s - state.speed) < 0.01));
-  const scrollPlayerHeaderIntoView = () => playerHeader.current?.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
+  const speedIndex = Math.max(
+    0,
+    SPEEDS.findIndex((s) => Math.abs(s - state.speed) < 0.01),
+  );
+  const scrollPlayerHeaderIntoView = () =>
+    playerHeader.current?.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
 
   return (
     <PanelSection title="Now Playing">
       <PanelSectionRow>
-        <Focusable ref={playerHeader} onFocus={scrollPlayerHeaderIntoView} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+        <Focusable
+          ref={playerHeader}
+          onFocus={scrollPlayerHeaderIntoView}
+          style={{ display: 'flex', gap: '12px', alignItems: 'center' }}
+        >
           <CoverImage itemId={np.itemId} size={64} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: "bold" }}>{np.title}</div>
+            <div style={{ fontWeight: 'bold' }}>{np.title}</div>
             {np.author && <div>{np.author}</div>}
             {np.offline && <FaDownload aria-label="Downloaded" />}
           </div>
@@ -99,12 +108,16 @@ export function PlayerView({
       </PanelSectionRow>
       {chapter && (
         <>
-          <PanelSectionRow><div>{state.chapterTitle}</div></PanelSectionRow>
+          <PanelSectionRow>
+            <div>{state.chapterTitle}</div>
+          </PanelSectionRow>
           <PanelSectionRow>
             <ProgressBar nProgress={Math.min(100, Math.max(0, chapterProgress * 100))} />
           </PanelSectionRow>
           <PanelSectionRow>
-            <div>{formatTime(displayTime - chapter.start)} / {formatTime(chapterDuration)}</div>
+            <div>
+              {formatTime(displayTime - chapter.start)} / {formatTime(chapterDuration)}
+            </div>
           </PanelSectionRow>
         </>
       )}
@@ -118,17 +131,37 @@ export function PlayerView({
       </PanelSectionRow>
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={busy} onClick={wrap(() => togglePause())}>
-          {state.playing ? "Pause" : "Play"}
+          {state.playing ? 'Pause' : 'Play'}
         </ButtonItem>
       </PanelSectionRow>
       <TwoColumnButtonRow
-        left={{ layout: "below", disabled: busy, onClick: wrap(() => seekRelative(-10)), children: "< 10s" }}
-        right={{ layout: "below", disabled: busy, onClick: wrap(() => seekRelative(10)), children: "10s >" }}
+        left={{
+          layout: 'below',
+          disabled: busy,
+          onClick: wrap(() => seekRelative(-10)),
+          children: '< 10s',
+        }}
+        right={{
+          layout: 'below',
+          disabled: busy,
+          onClick: wrap(() => seekRelative(10)),
+          children: '10s >',
+        }}
       />
       {state.chapters && state.chapters.length > 0 && (
         <TwoColumnButtonRow
-          left={{ layout: "below", disabled: busy, onClick: wrap(() => prevChapter()), children: "< Chapter" }}
-          right={{ layout: "below", disabled: busy, onClick: wrap(() => nextChapter()), children: "Chapter >" }}
+          left={{
+            layout: 'below',
+            disabled: busy,
+            onClick: wrap(() => prevChapter()),
+            children: '< Chapter',
+          }}
+          right={{
+            layout: 'below',
+            disabled: busy,
+            onClick: wrap(() => nextChapter()),
+            children: 'Chapter >',
+          }}
         />
       )}
       {state.chapters && state.chapters.length > 0 && (
@@ -159,7 +192,7 @@ export function PlayerView({
             onStopped();
           })}
         >
-          {"Stop"}
+          {'Stop'}
         </ButtonItem>
       </PanelSectionRow>
     </PanelSection>

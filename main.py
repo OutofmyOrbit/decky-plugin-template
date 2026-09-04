@@ -1,15 +1,15 @@
-import os
-import json
-import time
 import asyncio
 import base64
+import json
+import os
 import re
-
-import decky
+import time
 
 from abs_client import ABSClient, ABSError
-from mpv_controller import MPVController, MPVError
 from downloader import Downloader
+from mpv_controller import MPVController, MPVError
+
+import decky
 
 SYNC_INTERVAL_SECONDS = 20
 
@@ -22,7 +22,9 @@ class Plugin:
     async def _main(self):
         self.loop = asyncio.get_event_loop()
         self.client = ABSClient()
-        self.mpv = MPVController(decky.logger, decky.DECKY_PLUGIN_RUNTIME_DIR, decky.DECKY_PLUGIN_DIR)
+        self.mpv = MPVController(
+            decky.logger, decky.DECKY_PLUGIN_RUNTIME_DIR, decky.DECKY_PLUGIN_DIR
+        )
         self.downloader = Downloader(
             decky.logger, os.path.join(decky.DECKY_PLUGIN_RUNTIME_DIR, "downloads")
         )
@@ -57,7 +59,7 @@ class Plugin:
         cfg = {}
         if os.path.exists(path):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     cfg = json.load(f)
             except Exception as e:
                 decky.logger.warning(f"Failed to read config: {e}")
@@ -76,13 +78,16 @@ class Plugin:
     def _save_config(self):
         os.makedirs(decky.DECKY_PLUGIN_SETTINGS_DIR, exist_ok=True)
         with open(_config_path(), "w", encoding="utf-8") as f:
-            json.dump({
-                "server_url": self.client.server_url,
-                "token": self.client.token,
-                "username": getattr(self, "_username", ""),
-                "password": getattr(self, "_password", ""),
-                "playback_speeds": self._playback_speeds,
-            }, f)
+            json.dump(
+                {
+                    "server_url": self.client.server_url,
+                    "token": self.client.token,
+                    "username": getattr(self, "_username", ""),
+                    "password": getattr(self, "_password", ""),
+                    "playback_speeds": self._playback_speeds,
+                },
+                f,
+            )
 
     async def _auto_login(self):
         """Called on plugin start: validate any saved token, and if it's gone stale,
@@ -92,7 +97,9 @@ class Plugin:
                 await self.loop.run_in_executor(None, self.client.get_me)
                 return
             except Exception as e:
-                decky.logger.info(f"Saved session is no longer valid ({e}); will try saved credentials")
+                decky.logger.info(
+                    f"Saved session is no longer valid ({e}); will try saved credentials"
+                )
         if self.client.server_url and self._username and self._password:
             try:
                 result = await self.loop.run_in_executor(
@@ -116,15 +123,15 @@ class Plugin:
             "hasSavedCredentials": bool(self._username and self._password),
         }
 
-    async def login(self, server_url: str, username: str, password: str, remember: bool = True) -> dict:
+    async def login(
+        self, server_url: str, username: str, password: str, remember: bool = True
+    ) -> dict:
         server_url = (server_url or "").strip().rstrip("/")
         if not server_url.startswith("http://") and not server_url.startswith("https://"):
             server_url = "http://" + server_url
         try:
             self.client.set_server_url(server_url)
-            result = await self.loop.run_in_executor(
-                None, self.client.login, username, password
-            )
+            result = await self.loop.run_in_executor(None, self.client.login, username, password)
             user = result.get("user", {})
             token = user.get("token")
             if not token:
@@ -177,7 +184,6 @@ class Plugin:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-
     # ------------------------------------------------------------- library api
 
     async def get_libraries(self) -> dict:
@@ -185,7 +191,7 @@ class Plugin:
             libs = await self.loop.run_in_executor(None, self.client.get_libraries)
             return {
                 "success": True,
-                "libraries": [{"id": l["id"], "name": l["name"]} for l in libs],
+                "libraries": [{"id": library["id"], "name": library["name"]} for library in libs],
             }
         except ABSError as e:
             return {"success": False, "error": str(e), "libraries": []}
@@ -229,27 +235,31 @@ class Plugin:
                 if folded_sequence:
                     if not series_sequence:
                         series_sequence = folded_sequence.group(1)
-                    series_name = series_name[:folded_sequence.start()].rstrip()
-                items.append({
-                    "id": it.get("id"),
-                    "title": meta.get("title") or "Unknown title",
-                    "author": meta.get("authorName") or meta.get("author") or "",
-                    "duration": media.get("duration", 0),
-                    "progress": progress.get("progress", 0),
-                    "isFinished": progress.get("isFinished", False),
-                    "currentTime": progress.get("currentTime", 0),
-                    "coverUrl": self.client.cover_url(it.get("id")),
-                    "offline": self.downloader.is_downloaded(it.get("id")),
-                    "series": series_name,
-                    "seriesSequence": series_sequence,
-                    "lastPlayed": progress.get("lastUpdate", 0) or 0,
-                })
+                    series_name = series_name[: folded_sequence.start()].rstrip()
+                items.append(
+                    {
+                        "id": it.get("id"),
+                        "title": meta.get("title") or "Unknown title",
+                        "author": meta.get("authorName") or meta.get("author") or "",
+                        "duration": media.get("duration", 0),
+                        "progress": progress.get("progress", 0),
+                        "isFinished": progress.get("isFinished", False),
+                        "currentTime": progress.get("currentTime", 0),
+                        "coverUrl": self.client.cover_url(it.get("id")),
+                        "offline": self.downloader.is_downloaded(it.get("id")),
+                        "series": series_name,
+                        "seriesSequence": series_sequence,
+                        "lastPlayed": progress.get("lastUpdate", 0) or 0,
+                    }
+                )
             if not search:
-                items.sort(key=lambda item: (
-                    0 if item["lastPlayed"] else 1 if item["offline"] else 2,
-                    -float(item["lastPlayed"]) if item["lastPlayed"] else 0,
-                    item["title"].casefold(),
-                ))
+                items.sort(
+                    key=lambda item: (
+                        0 if item["lastPlayed"] else 1 if item["offline"] else 2,
+                        -float(item["lastPlayed"]) if item["lastPlayed"] else 0,
+                        item["title"].casefold(),
+                    )
+                )
             return {"success": True, "items": items}
         except ABSError as e:
             return {"success": False, "error": str(e), "items": []}
@@ -272,7 +282,12 @@ class Plugin:
                 "currentTime": progress.get("currentTime", 0),
                 "coverUrl": self.client.cover_url(item_id),
                 "chapters": [
-                    {"id": c.get("id"), "title": c.get("title"), "start": c.get("start"), "end": c.get("end")}
+                    {
+                        "id": c.get("id"),
+                        "title": c.get("title"),
+                        "start": c.get("start"),
+                        "end": c.get("end"),
+                    }
                     for c in chapters
                 ],
                 "downloadStatus": self.downloader.get_status(item_id),
@@ -304,7 +319,10 @@ class Plugin:
                     image = f.read(2 * 1024 * 1024 + 1)
                 if len(image) > 2 * 1024 * 1024:
                     return {"success": False, "error": "Cover image is larger than 2 MiB"}
-                return {"success": True, "dataUrl": "data:image/jpeg;base64," + base64.b64encode(image).decode("ascii")}
+                return {
+                    "success": True,
+                    "dataUrl": "data:image/jpeg;base64," + base64.b64encode(image).decode("ascii"),
+                }
             data_url = await self.loop.run_in_executor(None, self.client.cover_data_url, item_id)
             return {"success": True, "dataUrl": data_url}
         except ABSError as e:
@@ -330,13 +348,21 @@ class Plugin:
         tracks_raw = media.get("tracks", []) or []
         if not tracks_raw:
             return {"success": False, "error": "This item has no downloadable audio tracks"}
-        tracks = [{
-            "url": self.client.media_url(t["contentUrl"]),
-            "startOffset": t.get("startOffset", 0),
-            "duration": t.get("duration", 0),
-        } for t in sorted(tracks_raw, key=lambda t: t.get("index", 0))]
+        tracks = [
+            {
+                "url": self.client.media_url(t["contentUrl"]),
+                "startOffset": t.get("startOffset", 0),
+                "duration": t.get("duration", 0),
+            }
+            for t in sorted(tracks_raw, key=lambda t: t.get("index", 0))
+        ]
         chapters = [
-            {"id": c.get("id"), "title": c.get("title"), "start": c.get("start"), "end": c.get("end")}
+            {
+                "id": c.get("id"),
+                "title": c.get("title"),
+                "start": c.get("start"),
+                "end": c.get("end"),
+            }
             for c in media.get("chapters", []) or []
         ]
         title = meta.get("title") or "Unknown title"
@@ -366,7 +392,12 @@ class Plugin:
 
     async def play_item(self, item_id: str) -> dict:
         if not self.mpv.mpv_available():
-            return {"success": False, "error": 'mpv is not installed. Use the "Install mpv" button below, then try again.'}
+            return {
+                "success": False,
+                "error": (
+                    'mpv is not installed. Use the "Install mpv" button below, then try again.'
+                ),
+            }
         try:
             await self._stop_sync_loop()
             try:
@@ -406,14 +437,22 @@ class Plugin:
                 if not audio_tracks:
                     return {"success": False, "error": "This item has no playable audio tracks"}
 
-                tracks = [{
-                    "url": self.client.media_url(t["contentUrl"]),
-                    "startOffset": t.get("startOffset", 0),
-                    "duration": t.get("duration", 0),
-                } for t in sorted(audio_tracks, key=lambda t: t.get("index", 0))]
+                tracks = [
+                    {
+                        "url": self.client.media_url(t["contentUrl"]),
+                        "startOffset": t.get("startOffset", 0),
+                        "duration": t.get("duration", 0),
+                    }
+                    for t in sorted(audio_tracks, key=lambda t: t.get("index", 0))
+                ]
 
                 chapters = [
-                    {"id": c.get("id"), "title": c.get("title"), "start": c.get("start"), "end": c.get("end")}
+                    {
+                        "id": c.get("id"),
+                        "title": c.get("title"),
+                        "start": c.get("start"),
+                        "end": c.get("end"),
+                    }
                     for c in session.get("chapters", []) or []
                 ]
                 title = session.get("displayTitle") or "Unknown title"
