@@ -19,6 +19,7 @@ import {
 } from "../api";
 import { FaDownload } from "react-icons/fa";
 import { CoverImage } from "./CoverImage";
+import { TwoColumnButtonRow } from "./TwoColumnButtonRow";
 
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 0) seconds = 0;
@@ -94,7 +95,7 @@ export function PlayerView({
             {np.author && <div>{np.author}</div>}
             {np.offline && <FaDownload aria-label="Downloaded" />}
           </div>
-          </Focusable>
+        </Focusable>
       </PanelSectionRow>
       {chapter && (
         <>
@@ -120,27 +121,15 @@ export function PlayerView({
           {state.playing ? "Pause" : "Play"}
         </ButtonItem>
       </PanelSectionRow>
-      <PanelSectionRow>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%", textAlign: "center" }}>
-          <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(-10))}>
-            {"< 10s"}
-          </ButtonItem></div>
-          <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => seekRelative(10))}>
-            {"10s >"}
-          </ButtonItem></div>
-        </div>
-      </PanelSectionRow>
+      <TwoColumnButtonRow
+        left={{ layout: "below", disabled: busy, onClick: wrap(() => seekRelative(-10)), children: "< 10s" }}
+        right={{ layout: "below", disabled: busy, onClick: wrap(() => seekRelative(10)), children: "10s >" }}
+      />
       {state.chapters && state.chapters.length > 0 && (
-        <PanelSectionRow>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%", textAlign: "center" }}>
-            <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => prevChapter())}>
-              {"< Chapter"}
-            </ButtonItem></div>
-            <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" disabled={busy} onClick={wrap(() => nextChapter())}>
-              {"Chapter >"}
-            </ButtonItem></div>
-          </div>
-        </PanelSectionRow>
+        <TwoColumnButtonRow
+          left={{ layout: "below", disabled: busy, onClick: wrap(() => prevChapter()), children: "< Chapter" }}
+          right={{ layout: "below", disabled: busy, onClick: wrap(() => nextChapter()), children: "Chapter >" }}
+        />
       )}
       {state.chapters && state.chapters.length > 0 && (
         <PanelSectionRow>

@@ -3,6 +3,9 @@ import { PanelSection, PanelSectionRow, ButtonItem, Focusable, TextField } from 
 import { getLibraries, getLibraryItems, Library, LibraryItemSummary } from "../api";
 import { FaDownload } from "react-icons/fa";
 import { CoverImage } from "./CoverImage";
+import { TwoColumnButtonRow } from "./TwoColumnButtonRow";
+
+const PAGE_SIZE = 10;
 
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return "";
@@ -16,6 +19,7 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
   const [selectedLibrary, setSelectedLibrary] = useState<Library | null>(null);
   const [items, setItems] = useState<LibraryItemSummary[]>([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const [browseMode, setBrowseMode] = useState<"items" | "authors" | "series">("items");
   const [browseValue, setBrowseValue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,10 +67,15 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
   const seriesCount = (name: string) => items.filter((item) => item.series === name).length;
   const recentItems = items.filter((item) => item.currentTime > 0 && !item.isFinished);
   const offlineItems = items.filter((item) => item.offline && !recentItems.includes(item));
-  const remainingItems = items.filter((item) => !recentItems.includes(item) && !offlineItems.includes(item));
   const filteredItems = browseMode === "authors"
     ? items.filter((item) => item.author === browseValue)
     : items.filter((item) => item.series === browseValue);
+  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(0);
+  }, [search, selectedLibrary, items.length]);
 
   const renderItem = (item: LibraryItemSummary) => (
     <PanelSectionRow key={item.id}>
@@ -99,27 +108,18 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
   }
 
   return (
-    <PanelSection title={selectedLibrary.name}>
+    <>
+      <PanelSection title={selectedLibrary.name}>
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={() => { setSelectedLibrary(null); setItems([]); setSearch(""); setBrowseMode("items"); setBrowseValue(null); }}>
           {"< Back to libraries"}
         </ButtonItem>
       </PanelSectionRow>
-      <PanelSectionRow>
-        <TextField
-          label="Search"
-          description="Title or author"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </PanelSectionRow>
       {!search && browseMode === "items" && (
-        <PanelSectionRow>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", width: "100%", textAlign: "center" }}>
-            <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" onClick={() => { setBrowseMode("authors"); setBrowseValue(null); }}>Browse authors</ButtonItem></div>
-            <div style={{ minWidth: 0, overflow: "hidden" }}><ButtonItem layout="below" onClick={() => { setBrowseMode("series"); setBrowseValue(null); }}>Browse series</ButtonItem></div>
-          </div>
-        </PanelSectionRow>
+        <TwoColumnButtonRow
+          left={{ layout: "below", onClick: () => { setBrowseMode("authors"); setBrowseValue(null); }, children: "Browse authors" }}
+          right={{ layout: "below", onClick: () => { setBrowseMode("series"); setBrowseValue(null); }, children: "Browse series" }}
+        />
       )}
       {!search && browseMode !== "items" && !browseValue && (
         <>
@@ -147,7 +147,6 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
           <div>No items found.</div>
         </PanelSectionRow>
       )}
-      {!loading && search && items.map(renderItem)}
       {!loading && !search && browseValue && filteredItems.map(renderItem)}
       {!loading && !search && browseMode === "items" && (
         <>
@@ -155,11 +154,32 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
           {recentItems.map(renderItem)}
           {offlineItems.length > 0 && <PanelSectionRow><div>Available offline</div></PanelSectionRow>}
           {offlineItems.map(renderItem)}
-          {remainingItems.length > 0 && <PanelSectionRow><div>Library</div></PanelSectionRow>}
-          {remainingItems.map(renderItem)}
         </>
       )}
-    </PanelSection>
+      </PanelSection>
+      <PanelSection title="View All">
+      <PanelSectionRow>
+        <TextField
+          label="Search"
+          description="Title or author"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </PanelSectionRow>
+      {!loading && items.length === 0 && (
+        <PanelSectionRow>
+          <div>No items found.</div>
+        </PanelSectionRow>
+      )}
+      {!loading && pageItems.map(renderItem)}
+      {!loading && items.length > 0 && (
+        <TwoColumnButtonRow
+          left={{ layout: "below", disabled: page === 0, onClick: () => setPage((current) => current - 1), children: "Previous" }}
+          right={{ layout: "below", disabled: page >= pageCount - 1, onClick: () => setPage((current) => current + 1), children: "Next" }}
+        />
+      )}
+      </PanelSection>
+    </>
   );
 }
 
