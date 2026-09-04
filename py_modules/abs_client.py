@@ -83,6 +83,11 @@ class ABSClient:
     def get_me(self) -> dict:
         return self._request("GET", "/api/me")
 
+    def get_media_progress(self) -> list:
+        """Return the current user's progress records in the legacy API shape."""
+        result = self._request("GET", "/api/me/progress")
+        return result.get("mediaProgress", []) or []
+
     # ---- Libraries ----
 
     def get_libraries(self) -> list:

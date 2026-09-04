@@ -189,11 +189,23 @@ class Plugin:
             data = await self.loop.run_in_executor(
                 None, self.client.get_library_items, library_id, (search or None), 500
             )
+            try:
+                progress_records = await self.loop.run_in_executor(
+                    None, self.client.get_media_progress
+                )
+            except ABSError as e:
+                decky.logger.warning(f"Failed to load media progress: {e}")
+                progress_records = []
+            progress_by_item = {
+                record.get("libraryItemId"): record
+                for record in progress_records
+                if record.get("libraryItemId")
+            }
             items = []
             for it in data.get("results", []):
                 media = it.get("media", {}) or {}
                 meta = media.get("metadata", {}) or {}
-                progress = it.get("userMediaProgress") or {}
+                progress = progress_by_item.get(it.get("id"), {})
                 series_data = meta.get("series") or []
                 series_name = ""
                 if isinstance(series_data, list) and series_data:
