@@ -3,6 +3,7 @@ import json
 import time
 import asyncio
 import base64
+import re
 
 import decky
 
@@ -215,12 +216,20 @@ class Plugin:
                 progress = progress_by_item.get(it.get("id"), {})
                 series_data = meta.get("series") or []
                 series_name = ""
+                series_sequence = ""
                 if isinstance(series_data, list) and series_data:
-                    series_name = series_data[0].get("name") or ""
+                    series_entry = series_data[0] or {}
+                    series_name = series_entry.get("name") or ""
+                    series_sequence = str(series_entry.get("sequence") or "")
                 elif isinstance(series_data, str):
                     series_name = series_data
                 if not series_name:
                     series_name = meta.get("seriesName") or ""
+                folded_sequence = re.search(r"\s+#(\d+(?:\.\d+)?)$", series_name)
+                if folded_sequence:
+                    if not series_sequence:
+                        series_sequence = folded_sequence.group(1)
+                    series_name = series_name[:folded_sequence.start()].rstrip()
                 items.append({
                     "id": it.get("id"),
                     "title": meta.get("title") or "Unknown title",
@@ -232,6 +241,7 @@ class Plugin:
                     "coverUrl": self.client.cover_url(it.get("id")),
                     "offline": self.downloader.is_downloaded(it.get("id")),
                     "series": series_name,
+                    "seriesSequence": series_sequence,
                     "lastPlayed": progress.get("lastUpdate", 0) or 0,
                 })
             if not search:

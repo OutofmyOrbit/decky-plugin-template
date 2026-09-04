@@ -16,6 +16,7 @@ export interface LibraryItemSummary {
   coverUrl: string;
   offline: boolean;
   series: string;
+  seriesSequence: string;
 }
 
 export interface Chapter {

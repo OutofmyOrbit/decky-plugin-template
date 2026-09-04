@@ -3,6 +3,7 @@ import { PanelSection, PanelSectionRow, ButtonItem, Focusable, TextField } from 
 import { getLibraries, getLibraryItems, Library, LibraryItemSummary } from "../api";
 import { FaDownload } from "react-icons/fa";
 import { CoverImage } from "./CoverImage";
+import { SeriesView } from "./SeriesView";
 import { TwoColumnButtonRow } from "./TwoColumnButtonRow";
 
 const PAGE_SIZE = 10;
@@ -62,14 +63,8 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
 
   const authors = [...new Set(items.map((item) => item.author).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right));
-  const series = [...new Set(items.map((item) => item.series).filter(Boolean))]
-    .sort((left, right) => left.localeCompare(right));
-  const seriesCount = (name: string) => items.filter((item) => item.series === name).length;
   const recentItems = items.filter((item) => item.currentTime > 0 && !item.isFinished);
   const offlineItems = items.filter((item) => item.offline && !recentItems.includes(item));
-  const filteredItems = browseMode === "authors"
-    ? items.filter((item) => item.author === browseValue)
-    : items.filter((item) => item.series === browseValue);
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -121,16 +116,23 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
           right={{ layout: "below", onClick: () => { setBrowseMode("series"); setBrowseValue(null); }, children: "Browse series" }}
         />
       )}
-      {!search && browseMode !== "items" && !browseValue && (
+      {!search && browseMode === "authors" && !browseValue && (
         <>
           <PanelSectionRow><ButtonItem layout="below" onClick={() => setBrowseMode("items")}>{"< Back to library"}</ButtonItem></PanelSectionRow>
-          {(browseMode === "authors" ? authors : series).map((name) => (
-            <PanelSectionRow key={name}><ButtonItem layout="below" onClick={() => setBrowseValue(name)}>{browseMode === "series" ? `${name} (${seriesCount(name)})` : name}</ButtonItem></PanelSectionRow>
+          {authors.map((name) => (
+            <PanelSectionRow key={name}><ButtonItem layout="below" onClick={() => setBrowseValue(name)}>{name}</ButtonItem></PanelSectionRow>
           ))}
         </>
       )}
-      {!search && browseMode !== "items" && browseValue && (
+      {!search && browseMode === "authors" && browseValue && (
         <PanelSectionRow><ButtonItem layout="below" onClick={() => setBrowseValue(null)}>{`< Back to ${browseMode}`}</ButtonItem></PanelSectionRow>
+      )}
+      {!search && browseMode === "series" && (
+        <SeriesView
+          items={items}
+          onSelectItem={onSelectItem}
+          onBack={() => setBrowseMode("items")}
+        />
       )}
       {loading && (
         <PanelSectionRow>
@@ -147,7 +149,7 @@ export function LibraryView({ onSelectItem }: { onSelectItem: (itemId: string) =
           <div>No items found.</div>
         </PanelSectionRow>
       )}
-      {!loading && !search && browseValue && filteredItems.map(renderItem)}
+      {!loading && !search && browseMode === "authors" && browseValue && items.filter((item) => item.author === browseValue).map(renderItem)}
       {!loading && !search && browseMode === "items" && (
         <>
           {recentItems.length > 0 && <PanelSectionRow><div>Recently played</div></PanelSectionRow>}
