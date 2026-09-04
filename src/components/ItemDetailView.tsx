@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PanelSection, PanelSectionRow, ButtonItem, ProgressBar } from "@decky/ui";
+import type { ComponentProps, ComponentType } from "react";
 import {
   getItemDetails,
   playItem,
@@ -12,6 +13,10 @@ import {
   ItemDetails,
   DownloadStatus,
 } from "../api";
+import { CoverImage } from "./CoverImage";
+
+type PreferredButtonItemProps = ComponentProps<typeof ButtonItem> & { preferredFocus?: boolean };
+const PreferredButtonItem = ButtonItem as ComponentType<PreferredButtonItemProps>;
 
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 0) seconds = 0;
@@ -119,7 +124,15 @@ export function ItemDetailView({
   const hasProgress = (details?.currentTime ?? 0) > 1;
 
   return (
-    <PanelSection title={details?.title ?? "Loading..."}>
+    <>
+      <PanelSection>
+        <PanelSectionRow>
+          <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+            <CoverImage itemId={itemId} size={160} />
+          </div>
+        </PanelSectionRow>
+      </PanelSection>
+      <PanelSection title={details?.title ?? "Loading..."}>
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={onBack}>
           {"< Back"}
@@ -153,9 +166,9 @@ export function ItemDetailView({
         </>
       )}
       <PanelSectionRow>
-        <ButtonItem layout="below" disabled={busy || !mpvAvailable} onClick={onPlay}>
+        <PreferredButtonItem preferredFocus layout="below" disabled={busy || !mpvAvailable} onClick={onPlay}>
           {busy ? "Starting..." : hasProgress ? `Resume at ${formatTime(details!.currentTime!)}` : "Play"}
-        </ButtonItem>
+        </PreferredButtonItem>
       </PanelSectionRow>
       {details?.chapters && details.chapters.length > 0 && (
         <PanelSectionRow>
@@ -193,6 +206,7 @@ export function ItemDetailView({
           <div>Download failed: {download.error}</div>
         </PanelSectionRow>
       )}
-    </PanelSection>
+      </PanelSection>
+    </>
   );
 }

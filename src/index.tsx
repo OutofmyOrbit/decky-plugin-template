@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { staticClasses, PanelSection, PanelSectionRow, ButtonItem, Focusable, GamepadButton } from "@decky/ui";
+import { staticClasses, PanelSection, PanelSectionRow, ButtonItem, Focusable, GamepadButton, NavEntryPositionPreferences } from "@decky/ui";
 import { definePlugin } from "@decky/api";
 import { FaHeadphones } from "react-icons/fa";
 
@@ -59,6 +59,7 @@ function Content() {
   return (
     <Focusable
       onGamepadDirection={scrollToTopOnUp}
+      navEntryPreferPosition={screen === "item" ? NavEntryPositionPreferences.PREFERRED_CHILD : undefined}
       style={{ display: "contents" }}
     >
     <div ref={contentTopRef}>
