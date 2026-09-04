@@ -119,6 +119,15 @@
             ],
             "problemMatcher": []
         },
+        {
+            "label": "dev:deck",
+            "type": "shell",
+            "group": "build",
+            "detail": "Watch frontend, deploy dist changes, and restart Decky",
+            "command": "npm run dev:deck",
+            "isBackground": true,
+            "problemMatcher": []
+        },
         //GENERAL TASKS
         //Update Decky Frontend Library, aka DFL
         {

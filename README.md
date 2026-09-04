@@ -80,6 +80,25 @@ to your Deck however is convenient (USB drive, `scp`, browser download, etc.) an
 To iterate quickly, `npm run watch` rebuilds on file changes (skips zip packaging — run `npm run build` again when
 you want a fresh zip).
 
+### Live frontend deployment
+
+For rapid frontend work on a real Deck, configure SSH key authentication once and run:
+
+```powershell
+npm run dev:deck
+```
+
+The command starts Rollup watch mode, uploads only the changed `dist/` output, and restarts Decky Loader after each
+successful upload. It asks for the Deck's sudo password once when the watcher starts. The SSH connection itself must
+use a key or an `ssh-agent`; OpenSSH cannot reuse a login password through a script's stdin. Stop the watcher with
+`Ctrl+C`. Use the optional parameters on `scripts/watch-deploy.ps1` when the Deck is not at the defaults:
+
+```powershell
+./scripts/watch-deploy.ps1 -HostName steamdeck.local -User deck -IdentityFile $env:USERPROFILE\.ssh\id_ed25519
+```
+
+The existing `npm run build` and `scripts/deploy-to-deck.ps1` workflow remains the full package deployment path.
+
 ### Testing without a Steam Deck
 
 Deploying to a real Deck for every change is slow. Two better options while iterating:

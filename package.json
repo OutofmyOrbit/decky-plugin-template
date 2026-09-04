@@ -6,6 +6,7 @@
   "scripts": {
     "build": "rollup -c && node scripts/build-zip.mjs",
     "watch": "rollup -c -w",
+    "dev:deck": "powershell -ExecutionPolicy Bypass -File scripts/watch-deploy.ps1",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
