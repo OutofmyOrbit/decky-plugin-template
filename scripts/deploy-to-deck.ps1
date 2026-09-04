@@ -41,19 +41,36 @@ if ($IdentityFile) {
     $scpArgs += @("-i", $IdentityFile)
 }
 
+$sudoPassword = Read-Host "Enter the sudo password for $target" -AsSecureString
+$passwordHandle = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sudoPassword)
+try {
+    $sudoPasswordText = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordHandle)
+}
+finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordHandle)
+}
+
+function Invoke-SudoCommand {
+    param([string]$Command)
+
+    $commandBytes = [Text.Encoding]::UTF8.GetBytes($Command)
+    $encodedCommand = [Convert]::ToBase64String($commandBytes)
+    $remoteCommand = "sudo -S -p '' sh -c 'echo $encodedCommand | base64 -d | sh'"
+    "$sudoPasswordText`n" | & ssh @sshArgs $target $remoteCommand
+    Assert-LastExitCode "Remote sudo command"
+}
+
 Write-Host "Uploading $zipPath to $target..."
 & scp @scpArgs $zipPath "${target}:$remoteArchive"
 Assert-LastExitCode "Upload"
 
-$installCommand = "set -eu; sudo rm -rf '$remotePluginDir'; sudo mkdir -p '$remotePluginDir'; sudo bsdtar -xzf '$remoteArchive' -C '$remotePluginDir' --strip-components=1; sudo rm -f '$remoteArchive'; sudo chmod -R u+rwX '$remotePluginDir'"
+$installCommand = "set -eu; rm -rf '$remotePluginDir'; mkdir -p '$remotePluginDir'; bsdtar -xzf '$remoteArchive' -C '$remotePluginDir' --strip-components=1; rm -f '$remoteArchive'; chmod -R u+rwX '$remotePluginDir'"
 Write-Host "Replacing $remotePluginDir..."
-& ssh -t @sshArgs $target $installCommand
-Assert-LastExitCode "Plugin installation"
+Invoke-SudoCommand $installCommand
 
 if (-not $SkipRestart) {
-    Write-Host "Restarting Decky Loader (the Deck may ask for your sudo password)..."
-    & ssh -t @sshArgs $target "sudo systemctl restart plugin_loader"
-    Assert-LastExitCode "Decky Loader restart"
+    Write-Host "Restarting Decky Loader..."
+    Invoke-SudoCommand "systemctl restart plugin_loader"
 }
 
 Write-Host "Installed $pluginName successfully."
