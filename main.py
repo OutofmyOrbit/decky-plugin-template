@@ -31,6 +31,7 @@ class Plugin:
         self._last_sync_wall: float = 0.0
         self._last_synced_time: float = 0.0
         self._sync_task: asyncio.Task | None = None
+        self._playback_speeds: dict[str, float] = {}
 
         self._load_config()
         await self._auto_login()
@@ -62,6 +63,11 @@ class Plugin:
         self.client.set_server_url(cfg.get("server_url", ""))
         self.client.set_token(cfg.get("token", ""))
         self._username = cfg.get("username", "")
+        self._playback_speeds = {
+            str(item_id): float(speed)
+            for item_id, speed in (cfg.get("playback_speeds", {}) or {}).items()
+            if isinstance(speed, (int, float)) and speed > 0
+        }
         # Stored only when the user opts in ("remember me") so that a saved token going
         # stale (e.g. server restart, password change) can be silently refreshed.
         self._password = cfg.get("password", "")
@@ -74,6 +80,7 @@ class Plugin:
                 "token": self.client.token,
                 "username": getattr(self, "_username", ""),
                 "password": getattr(self, "_password", ""),
+                "playback_speeds": self._playback_speeds,
             }, f)
 
     async def _auto_login(self):
@@ -406,6 +413,8 @@ class Plugin:
                 session_id = session.get("id")
 
             await self.mpv.start(tracks, chapters, start_time)
+            saved_speed = self._playback_speeds.get(item_id, 1.0)
+            await self.mpv.set_speed(saved_speed)
 
             self.session_id = session_id
             self.now_playing = {
@@ -482,7 +491,13 @@ class Plugin:
 
     async def set_playback_speed(self, speed: float) -> dict:
         try:
+            speed = float(speed)
+            if speed <= 0:
+                return {"success": False, "error": "Playback speed must be greater than zero"}
             await self.mpv.set_speed(speed)
+            if self.now_playing:
+                self._playback_speeds[self.now_playing["itemId"]] = speed
+                self._save_config()
             return {"success": True}
         except MPVError as e:
             return {"success": False, "error": str(e)}
